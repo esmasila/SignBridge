@@ -1,0 +1,75 @@
+# SignBridge için .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Sanal ortamlar
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# PyTorch modeller (çok büyük - GitHub LFS gerekir)
+*.pth
+checkpoints/*.pt
+yolo_runs/
+
+# YOLO dataset (6GB - GitHub'a eklenmemeli)
+turk_isaret_yolo/train/
+turk_isaret_yolo/valid/
+turk_isaret_yolo/test/
+*.zip
+
+# Veri setleri (çok büyük)
+data/raw/
+data/processed/
+data/webcam_dataset/
+
+# Loglar
+logs/*.log
+
+# PDF dosyalar
+*.pdf
+
+# Geçici dosyalar
+*.tmp
+*.bak
+*.cache
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test dosyaları
+test_images/
+test_videos/

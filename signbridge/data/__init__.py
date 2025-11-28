@@ -1,0 +1,3 @@
+"""
+Veri işleme modülü
+"""

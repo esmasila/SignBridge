@@ -1,0 +1,39 @@
+# SignBridge Gereksinimleri
+# Python 3.10+ gereklidir
+
+# Temel görüntü işleme
+mediapipe>=0.10.0
+opencv-python>=4.8.0
+numpy>=1.24.0
+Pillow>=10.0.0
+
+# Derin öğrenme
+torch>=2.0.0
+torchvision>=0.15.0
+torchaudio>=2.0.0
+
+# Veri işleme ve ML
+scikit-learn>=1.3.0
+scipy>=1.11.0
+
+# Görselleştirme
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Web API
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+pydantic>=2.0.0
+python-multipart>=0.0.6
+
+# TTS (Metinden Konuşmaya)
+pyttsx3>=2.90
+gtts>=2.5.0
+
+# Yardımcı kütüphaneler
+tqdm>=4.65.0
+pyyaml>=6.0
+requests>=2.31.0
+
+# Logging ve monitoring
+colorlog>=6.7.0
