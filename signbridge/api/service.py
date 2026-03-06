@@ -295,28 +295,6 @@ async def predict(request: PredictionRequest):
     return await predict_frame(request)
 
 
-def _legacy_predict_id(prediction_text: str) -> int:
-    """Sınıf ID'si bul (eski kod uyumu)"""
-    # Sınıf ID'yi bul
-    prediction_id = -1
-    for class_id, text in {}.items():
-        if text == prediction_text:
-            prediction_id = class_id
-                break
-        
-        return PredictionResponse(
-            success=True,
-            prediction_id=prediction_id,
-            prediction_text=prediction_text,
-            confidence=float(confidence),
-            message="Tahmin başarılı"
-        )
-
-    except Exception as e:
-        logger.error(f"Tahmin hatası: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @app.post("/predict_sign")
 async def predict_sign(request: PredictionRequest):
     """
