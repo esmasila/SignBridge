@@ -57,7 +57,7 @@ SEQUENCE_MODEL_CONFIG = {
     "input_dim": TOTAL_FEATURE_DIM,
     "hidden_dim": 256,
     "num_layers": 2,
-    "num_classes": 100,  # Başlangıç, büyük veri setleriyle artacak
+    "num_classes": 10,  # Şu an rakamlar (0-9); AUTSL/BosphorusSign ile artacak
     "dropout": 0.3,
     "bidirectional": True
 }

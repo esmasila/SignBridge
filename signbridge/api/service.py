@@ -2,65 +2,65 @@
 FastAPI Web Servisi - Türk İşaret Dili → Türkçe Metin Çevirisi
 
 AKTİF ÖZELLİKLER:
-1. RAKAM TANIMA (0-9): 
-   - Model: multimodal_digits_best.pt
-   - Accuracy: 99.79%
-   - FPS: ~27 (gerçek zamanlı)
-   - Preprocessing: MediaPipe Holistic landmark + 64x64 görüntü
-   - Endpoint: POST /predict (model_mode="digits")
+1. AUTSL TRANSFORMER (226 Türkçe kelime) - ANA MODEL:
+   - Model: autsl_transformer/model/best_model.pt
+   - Accuracy: %83.9 val, %81.2 test
+   - Architecture: SignTransformerPro (6 layer, 384 d_model, 12 head)
+   - Input: 30-frame sequence, 718 feature (raw+velocity+acceleration+distances)
+   - Endpoint: POST /predict/frame (tek frame gönder, 30 frame dolunca tahmin döner)
+   - Endpoint: POST /predict/sequence (30 frame'lik base64 dizisi gönder)
 
-2. TTS (Text-to-Speech):
+2. YOLO İŞARET KELIME TANIMA (20 kelime):
+   - Model: yolo_runs/turk_isaret_v1/weights/best.pt
+   - Endpoint: POST /predict_sign
+
+3. TTS (Text-to-Speech):
    - gTTS ile Türkçe ses sentezi
    - Endpoint: POST /tts
 
-3. WEB UI:
+4. WEB UI:
    - GET / → web/index.html
-   - Gerçek zamanlı webcam görüntüsü
-   - Model seçici (digits/alphabet)
-   - Otomatik TTS
-
-PASSİF/LEGACY:
-- Alfabe tanıma (A-Z): legacy_alphabet/ klasörüne taşındı
-- Model: kaggle_alphabet_best.pt (99.63% test ama gerçek dünya performansı zayıf)
 
 ENDPOINTS:
-- GET /health - API sağlık kontrolü
-- POST /predict - Görüntüden tahmin (digits veya alphabet modu)
-- POST /tts - Metni sese çevir
-- GET /model/info - Model bilgileri
+- GET /health                  - API sağlık kontrolü
+- GET /model/info              - Model bilgileri
+- POST /predict/frame          - Tek webcam frame'i gönder (AUTSL rolling buffer)
+- POST /predict/sequence       - 30 frame'lik dizi gönder (AUTSL)
+- POST /predict_sign           - YOLOv11 ile 20 kelime tanıma
+- POST /tts                    - Metni sese çevir
+- POST /reset/buffer           - AUTSL frame buffer'ını sıfırla
 """
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import numpy as np
 import cv2
 import torch
-from typing import Optional, List, Dict
+from typing import Optional, List
 import base64
 from pathlib import Path
 import sys
 from datetime import datetime
 from gtts import gTTS
 import io
-import tempfile
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+    _YOLO_AVAILABLE = True
+except ImportError:
+    _YOLO_AVAILABLE = False
 
 # Proje modüllerini import et
-sys.path.append(str(Path(__file__).parent.parent.parent))
+ROOT_DIR = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(ROOT_DIR))
 
-from signbridge.config import (
-    API_CONFIG,
-    CLASS_TO_TURKISH,
-    CHECKPOINT_DIR
-)
-from signbridge.models.cnn_digits import load_digits_model
-from signbridge.models.islr_sequence_model import load_sequence_model
-from signbridge.models.multimodal_cnn import MultimodalDigitsCNN
-from signbridge.data.preprocess import LandmarkExtractor
+from signbridge.config import API_CONFIG, CHECKPOINT_DIR
 from signbridge.utils.logging_utils import setup_logger
+
+# AUTSL Transformer
+from autsl_transformer.inference import AUTSLPredictor
 
 
 # Logger
@@ -76,38 +76,30 @@ app = FastAPI(
     openapi_url="/api/openapi.json"
 )
 
-# CORS middleware (frontend için)
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Production'da belirli domainler yazılmalı
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Global model (başlangıçta None)
-model = None
-model_type = None
-device = None
-landmark_extractor = None
-current_model_mode = "digits"  # "digits" veya "alphabet"
+# ── Global değişkenler ──────────────────────────────────────────────────────
+autsl_predictor: Optional[AUTSLPredictor] = None  # ANA MODEL
 
-# YOLO model (işaret kelime tanıma)
-yolo_model = None
-YOLO_CLASSES = ['Anne', 'Arkadas', 'Baba', 'Dur', 'Ev', 'Evet', 'Hayir', 'Kardes', 
-                'Merhaba', 'Nasil', 'Nerede', 'Ozur-Dilemek', 'Tamam', 'Telefon', 
+yolo_model = None  # YOLO (20 kelime)
+YOLO_CLASSES = ['Anne', 'Arkadas', 'Baba', 'Dur', 'Ev', 'Evet', 'Hayir', 'Kardes',
+                'Merhaba', 'Nasil', 'Nerede', 'Ozur-Dilemek', 'Tamam', 'Telefon',
                 'Tesekkurler', 'Tuvalet', 'Yemek', 'icmek', 'iyi', 'kotu']
 
-# Türk alfabesi harfleri (26 sınıf - 23 harf + del, nothing, space)
-ALPHABET_LETTERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
-                    'N', 'O', 'P', 'R', 'S', 'T', 'U', 'V', 'Y', 'Z', 'del', 'nothing', 'space']
 
-
+# ── Pydantic modelleri ──────────────────────────────────────────────────────
 class PredictionRequest(BaseModel):
     """Tahmin isteği modeli"""
     image_base64: Optional[str] = None
     landmarks: Optional[List[float]] = None
-    model_mode: Optional[str] = "digits"  # "digits" veya "alphabet"
+    model_mode: Optional[str] = "autsl"
 
 
 class PredictionResponse(BaseModel):
@@ -126,397 +118,181 @@ class TTSRequest(BaseModel):
     slow: bool = False
 
 
-def load_model(mode="digits"):
-    """Model yükle (digits veya alphabet)"""
-    global model, model_type, current_model_mode, device
-    
-    if mode == "alphabet":
-        model_path = CHECKPOINT_DIR / "kaggle_alphabet_best.pt"
-        num_classes = 26  # 23 harf + del, nothing, space
-    else:  # digits
-        model_path = CHECKPOINT_DIR / "multimodal_digits_best.pt"
-        num_classes = 10
-    
-    if not model_path.exists():
-        logger.warning(f"Model bulunamadı: {model_path}")
-        return False
-    
-    try:
-        model = MultimodalDigitsCNN(num_classes=num_classes).to(device)
-        checkpoint = torch.load(str(model_path), map_location=device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.eval()
-        
-        # CPU'da quantization
-        if device == "cpu":
-            model = torch.quantization.quantize_dynamic(
-                model, {torch.nn.Linear}, dtype=torch.qint8
-            )
-        
-        model_type = "multimodal"
-        current_model_mode = mode
-        logger.info(f"✅ {mode.upper()} modeli yüklendi ({num_classes} sınıf)")
-        return True
-    except Exception as e:
-        logger.error(f"Model yükleme hatası: {e}")
-        return False
-
-
 @app.on_event("startup")
 async def startup_event():
     """Uygulama başlangıcında çalışır"""
-    global device, landmark_extractor, yolo_model
-    
+    global autsl_predictor, yolo_model
+
     logger.info("=" * 60)
     logger.info("SignBridge API Başlatılıyor")
     logger.info("=" * 60)
-    
-    # Device
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
     logger.info(f"Device: {device}")
-    
-    # Varsayılan model yükle (digits)
-    load_model("digits")
-    
-    # YOLOv11 model yükle (işaret kelime tanıma)
+
+    # ── AUTSL Transformer (ANA MODEL) ──────────────────────────────
     try:
-        yolo_path = Path(__file__).parent.parent.parent / "yolo_runs" / "turk_isaret_v1" / "weights" / "best.pt"
-        if yolo_path.exists():
-            yolo_model = YOLO(str(yolo_path))
-            logger.info(f"✅ YOLOv11 modeli yüklendi: {yolo_path.name}")
-            logger.info(f"   20 kelime: {', '.join(YOLO_CLASSES[:5])}...")
-        else:
-            logger.warning(f"YOLOv11 modeli bulunamadı: {yolo_path}")
-            yolo_model = None
+        autsl_dir = ROOT_DIR / "autsl_transformer" / "model"
+        autsl_predictor = AUTSLPredictor(model_dir=str(autsl_dir), device=device)
+        logger.info(f"✅ AUTSL Transformer yüklendi (226 sınıf, %83.9 val acc)")
     except Exception as e:
-        logger.error(f"YOLOv11 yükleme hatası: {e}")
-        yolo_model = None
-    
-    # MediaPipe
-    try:
-        landmark_extractor = LandmarkExtractor()
-        logger.info("MediaPipe hazır")
-    except Exception as e:
-        logger.error(f"MediaPipe başlatılamadı: {e}")
-        landmark_extractor = None
-    
+        logger.error(f"AUTSL modeli yüklenemedi: {e}")
+        autsl_predictor = None
+
+    # ── YOLOv11 (20 kelime) ────────────────────────────────────────
+    if _YOLO_AVAILABLE:
+        try:
+            yolo_path = ROOT_DIR / "yolo_runs" / "turk_isaret_v1" / "weights" / "best.pt"
+            if yolo_path.exists():
+                yolo_model = YOLO(str(yolo_path))
+                logger.info(f"✅ YOLOv11 yüklendi: {yolo_path}")
+            else:
+                logger.warning(f"YOLOv11 ağırlıkları bulunamadı: {yolo_path}")
+        except Exception as e:
+            logger.error(f"YOLOv11 yükleme hatası: {e}")
+    else:
+        logger.warning("ultralytics kurulu değil, YOLOv11 devre dışı")
+
     logger.info("API hazır")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Uygulama kapanışında çalışır"""
-    global landmark_extractor
-    
+    global autsl_predictor
     logger.info("API kapatılıyor...")
-    
-    if landmark_extractor:
-        landmark_extractor.close()
-    
+    if autsl_predictor:
+        autsl_predictor.close()
     logger.info("API kapatıldı")
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Ana sayfa - Web UI"""
-    web_path = Path(__file__).parent.parent.parent / "web" / "index.html"
+    web_path = ROOT_DIR / "web" / "index.html"
     if web_path.exists():
         return FileResponse(web_path)
-    else:
-        # Fallback JSON response
-        return JSONResponse({
-            "message": "SignBridge API - Türk İşaret Dili Çevirici",
-            "version": API_CONFIG["version"],
-            "endpoints": {
-                "health": "/health",
-                "predict": "/predict (POST)",
-                "predict_image": "/predict/image (POST)",
-                "model_info": "/model/info"
-            }
-        })
+    return JSONResponse({
+        "message": "SignBridge API - Türk İşaret Dili Çevirici",
+        "version": API_CONFIG["version"],
+        "docs": "/api/docs",
+    })
 
 
 @app.get("/health")
 async def health_check():
-    """
-    Sağlık kontrolü endpoint'i
-    API'nin çalışıp çalışmadığını kontrol eder
-    """
-    global model, model_type, device
-    
-    status = {
+    return JSONResponse({
         "status": "healthy",
         "api_version": API_CONFIG["version"],
-        "model_loaded": model is not None,
-        "model_type": model_type,
-        "device": device
-    }
-    
-    return JSONResponse(content=status)
+        "autsl_loaded": autsl_predictor is not None,
+        "yolo_loaded": yolo_model is not None,
+    })
 
 
 @app.get("/model/info")
 async def model_info():
     """Model bilgileri"""
-    global model, model_type, yolo_model
-    
-    if model is None:
-        raise HTTPException(status_code=503, detail="Model yüklü değil")
-    
+    if autsl_predictor is None:
+        raise HTTPException(status_code=503, detail="AUTSL modeli yüklü değil")
+
+    feat_cfg = autsl_predictor.feat_config or {}
     info = {
-        "digits_model": {
-            "model_type": model_type,
-            "num_classes": len(CLASS_TO_TURKISH),
-            "classes": CLASS_TO_TURKISH,
-            "device": device
+        "autsl_transformer": {
+            "loaded": True,
+            "num_classes": len(autsl_predictor.label_map),
+            "feature_size": feat_cfg.get("feature_size", 718),
+            "seq_length": autsl_predictor.seq_length,
+            "val_acc": feat_cfg.get("best_val_acc"),
+            "test_acc": feat_cfg.get("test_acc_no_tta"),
+            "buffer_size": len(autsl_predictor.frame_buffer),
         },
-        "yolo_model": {
+        "yolo": {
             "loaded": yolo_model is not None,
-            "num_classes": len(YOLO_CLASSES) if yolo_model else 0,
-            "classes": YOLO_CLASSES if yolo_model else [],
-            "architecture": "YOLOv11-nano",
-            "mAP50": 0.99596
-        }
+            "num_classes": len(YOLO_CLASSES),
+            "classes": YOLO_CLASSES,
+        },
     }
-    
     return JSONResponse(content=info)
 
 
+@app.post("/predict/frame", response_model=PredictionResponse)
+async def predict_frame(request: PredictionRequest):
+    """
+    Tek webcam frame'i gönder.
+    Sunucu-taraflı rolling buffer (30 frame) dolar dolmaz tahmin döner.
+
+    Kullanım:
+      - Her webcam karesini base64 olarak gönder
+      - Buffer dolmadan: prediction_text="", confidence=0, message="{N}/30 frame"
+      - Buffer dolunca: AUTSL tahmini döner (her frame'de güncellenir)
+    """
+    if autsl_predictor is None:
+        raise HTTPException(status_code=503, detail="AUTSL modeli yüklü değil")
+
+    if not request.image_base64:
+        raise HTTPException(status_code=400, detail="image_base64 gerekli")
+
+    try:
+        img_bytes = base64.b64decode(request.image_base64)
+        nparr = np.frombuffer(img_bytes, np.uint8)
+        frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if frame is None:
+            raise HTTPException(status_code=400, detail="Geçersiz görüntü")
+
+        autsl_predictor.process_frame(frame)
+        label, conf, buf_len = autsl_predictor.predict()
+
+        if label is None:
+            return PredictionResponse(
+                success=False,
+                prediction_id=-1,
+                prediction_text="",
+                confidence=0.0,
+                message=f"{buf_len}/{autsl_predictor.seq_length} frame toplandı"
+            )
+
+        pred_id = next(
+            (k for k, v in autsl_predictor.label_map.items() if v == label), -1
+        )
+        return PredictionResponse(
+            success=True,
+            prediction_id=pred_id,
+            prediction_text=label,
+            confidence=float(conf),
+            message="AUTSL tahmini"
+        )
+    except Exception as e:
+        logger.error(f"/predict/frame hatası: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/predict/sequence", response_model=PredictionResponse)
+async def predict_sequence(request: PredictionRequest):
+    """
+    30 frame'lik dizi gönder (images_base64 listesi).
+    Sunucu buffer'ını etkilemez.
+    """
+    if autsl_predictor is None:
+        raise HTTPException(status_code=503, detail="AUTSL modeli yüklü değil")
+    raise HTTPException(
+        status_code=501,
+        detail="Henüz implemente edilmedi. /predict/frame endpoint'ini kullanın."
+    )
+
+
+@app.post("/reset/buffer")
+async def reset_buffer():
+    """AUTSL frame buffer'ını sıfırla"""
+    if autsl_predictor:
+        autsl_predictor.reset_buffer()
+    return JSONResponse({"message": "Buffer sıfırlandı"})
+
+
+# ── Eski /predict endpoint'i (geriye dönük uyumluluk) ──────────────────────
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: PredictionRequest):
     """
-    Tahmin endpoint'i
-    Base64 görüntü veya landmark dizisi kabul eder
+    Geriye dönük uyumluluk için /predict/frame'e yönlendir.
     """
-    global model, landmark_extractor, current_model_mode
-    
-    # Model değiştirme
-    if request.model_mode and request.model_mode != current_model_mode:
-        load_model(request.model_mode)
-    
-    if model is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Model yüklü değil. Lütfen önce modeli eğitin."
-        )
-    
-    try:
-        # Görüntüden tahmin
-        if request.image_base64:
-            # Base64'ü decode et
-            image_bytes = base64.b64decode(request.image_base64)
-            nparr = np.frombuffer(image_bytes, np.uint8)
-            image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-            
-            if image is None:
-                raise HTTPException(status_code=400, detail="Geçersiz görüntü")
-            
-            # Model tipine göre tahmin
-            if model_type == "multimodal":
-                # Multimodal: hem görüntü hem landmark kullan
-                if landmark_extractor is None:
-                    raise HTTPException(status_code=503, detail="MediaPipe hazır değil")
-                
-                # Grayscale'e çevir, sonra adaptive threshold uygula (ışığa uyumlu)
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                thresholded = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                                    cv2.THRESH_BINARY, 11, 2)
-                # Tekrar BGR'a çevir (MediaPipe BGR bekliyor)
-                image = cv2.cvtColor(thresholded, cv2.COLOR_GRAY2BGR)
-                
-                # Görüntüyü küçült (MediaPipe için, daha hızlı)
-                h, w = image.shape[:2]
-                if w > 320:  # Eğer çok büyükse küçült
-                    scale = 320 / w
-                    image = cv2.resize(image, None, fx=scale, fy=scale, interpolation=cv2.INTER_LINEAR)
-                
-                landmarks = landmark_extractor.extract_from_image(image)
-                if landmarks is None:
-                    raise HTTPException(status_code=400, detail="Landmark çıkarılamadı")
-                
-                prediction_text, confidence = predict_multimodal(image, landmarks)
-            elif model_type == "cnn":
-                prediction_text, confidence = predict_from_image_cnn(image)
-            else:
-                # Sekans modeli için landmark çıkar
-                if landmark_extractor is None:
-                    raise HTTPException(status_code=503, detail="MediaPipe hazır değil")
-                
-                landmarks = landmark_extractor.extract_from_image(image)
-                if landmarks is None:
-                    raise HTTPException(status_code=400, detail="Landmark çıkarılamadı")
-                
-                prediction_text, confidence = predict_from_landmarks(landmarks)
-        
-        # Landmark'tan tahmin
-        elif request.landmarks:
-            landmarks = np.array(request.landmarks, dtype=np.float32)
-            prediction_text, confidence = predict_from_landmarks(landmarks)
-        
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail="image_base64 veya landmarks gerekli"
-            )
-        
-        # Sınıf ID'yi bul
-        prediction_id = -1
-        for class_id, text in CLASS_TO_TURKISH.items():
-            if text == prediction_text:
-                prediction_id = class_id
-                break
-        
-        return PredictionResponse(
-            success=True,
-            prediction_id=prediction_id,
-            prediction_text=prediction_text,
-            confidence=float(confidence),
-            message="Tahmin başarılı"
-        )
-    
-    except Exception as e:
-        logger.error(f"Tahmin hatası: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/predict/image")
-async def predict_image(file: UploadFile = File(...)):
-    """
-    Görüntü dosyası upload ederek tahmin
-    """
-    global model
-    
-    if model is None:
-        raise HTTPException(status_code=503, detail="Model yüklü değil")
-    
-    try:
-        # Dosyayı oku
-        contents = await file.read()
-        nparr = np.frombuffer(contents, np.uint8)
-        image = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        
-        if image is None:
-            raise HTTPException(status_code=400, detail="Geçersiz görüntü dosyası")
-        
-        # Tahmin
-        if model_type == "multimodal":
-            if landmark_extractor is None:
-                raise HTTPException(status_code=503, detail="MediaPipe hazır değil")
-            
-            landmarks = landmark_extractor.extract_from_image(image)
-            if landmarks is None:
-                raise HTTPException(status_code=400, detail="Landmark çıkarılamadı")
-            
-            prediction_text, confidence = predict_multimodal(image, landmarks)
-        elif model_type == "cnn":
-            prediction_text, confidence = predict_from_image_cnn(image)
-        else:
-            if landmark_extractor is None:
-                raise HTTPException(status_code=503, detail="MediaPipe hazır değil")
-            
-            landmarks = landmark_extractor.extract_from_image(image)
-            if landmarks is None:
-                raise HTTPException(status_code=400, detail="Landmark çıkarılamadı")
-            
-            prediction_text, confidence = predict_from_landmarks(landmarks)
-        
-        # Sınıf ID
-        prediction_id = -1
-        for class_id, text in CLASS_TO_TURKISH.items():
-            if text == prediction_text:
-                prediction_id = class_id
-                break
-        
-        return PredictionResponse(
-            success=True,
-            prediction_id=prediction_id,
-            prediction_text=prediction_text,
-            confidence=float(confidence),
-            message="Tahmin başarılı"
-        )
-    
-    except Exception as e:
-        logger.error(f"Görüntü tahmin hatası: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-def predict_from_image_cnn(image: np.ndarray) -> tuple:
-    """CNN ile görüntüden tahmin"""
-    from torchvision import transforms
-    from signbridge.config import DIGITS_MODEL_CONFIG
-    
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize(DIGITS_MODEL_CONFIG["input_size"]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    input_tensor = transform(image_rgb).unsqueeze(0).to(device)
-    
-    with torch.inference_mode():  # no_grad() yerine inference_mode() (10-15% hızlı)
-        output = model(input_tensor)
-        probabilities = torch.softmax(output, dim=1)
-        confidence, predicted_class = probabilities.max(1)
-    
-    class_id = predicted_class.item()
-    confidence_score = confidence.item()
-    prediction_text = CLASS_TO_TURKISH.get(class_id, f"Bilinmeyen ({class_id})")
-    
-    return prediction_text, confidence_score
-
-
-def predict_from_landmarks(landmarks: np.ndarray) -> tuple:
-    """Landmark'tan tahmin"""
-    # TODO: Sekans modeli implementasyonu
-    # Şimdilik basit bir tahmin döndür
-    return "Landmark tahmini henüz desteklenmiyor", 0.0
-
-
-def predict_multimodal(image: np.ndarray, landmarks: np.ndarray) -> tuple:
-    """Multimodal model ile tahmin (görüntü + landmark)"""
-    from torchvision import transforms
-    from signbridge.config import DIGITS_MODEL_CONFIG
-    
-    # Görüntü preprocessing
-    transform = transforms.Compose([
-        transforms.ToPILImage(),
-        transforms.Resize(DIGITS_MODEL_CONFIG["input_size"]),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-    ])
-    
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    image_tensor = transform(image_rgb).unsqueeze(0).to(device)
-    
-    # Landmark preprocessing (flatten ve normalize)
-    landmarks_flat = landmarks.flatten()
-    
-    # Alphabet modeli 324-dim landmark kullanıyor, 1629'a pad et
-    if len(landmarks_flat) < 1629:
-        landmarks_flat = np.pad(landmarks_flat, (0, 1629 - len(landmarks_flat)), mode='constant')
-    elif len(landmarks_flat) > 1629:
-        landmarks_flat = landmarks_flat[:1629]
-    
-    landmark_tensor = torch.from_numpy(landmarks_flat).float().unsqueeze(0).to(device)
-    
-    # Tahmin
-    with torch.inference_mode():  # no_grad() yerine inference_mode() (10-15% hızlı)
-        output = model(image_tensor, landmark_tensor)
-        probabilities = torch.softmax(output, dim=1)
-        confidence, predicted_class = probabilities.max(1)
-    
-    class_id = predicted_class.item()
-    confidence_score = confidence.item()
-    
-    # Model moduna göre text çevir
-    if current_model_mode == "alphabet":
-        prediction_text = ALPHABET_LETTERS[class_id] if class_id < len(ALPHABET_LETTERS) else f"Bilinmeyen ({class_id})"
-    else:  # digits
-        prediction_text = CLASS_TO_TURKISH.get(class_id, f"Bilinmeyen ({class_id})")
-    
-    return prediction_text, confidence_score
+    return await predict_frame(request)
 
 
 @app.post("/predict_sign")
