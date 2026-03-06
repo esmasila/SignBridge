@@ -317,13 +317,6 @@ async def predict(request: PredictionRequest):
                 if landmark_extractor is None:
                     raise HTTPException(status_code=503, detail="MediaPipe hazır değil")
                 
-                # Grayscale'e çevir, sonra adaptive threshold uygula (ışığa uyumlu)
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                thresholded = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                                    cv2.THRESH_BINARY, 11, 2)
-                # Tekrar BGR'a çevir (MediaPipe BGR bekliyor)
-                image = cv2.cvtColor(thresholded, cv2.COLOR_GRAY2BGR)
-                
                 # Görüntüyü küçült (MediaPipe için, daha hızlı)
                 h, w = image.shape[:2]
                 if w > 320:  # Eğer çok büyükse küçült
@@ -490,15 +483,16 @@ def predict_multimodal(image: np.ndarray, landmarks: np.ndarray) -> tuple:
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     image_tensor = transform(image_rgb).unsqueeze(0).to(device)
     
-    # Landmark preprocessing (flatten ve normalize)
+    # Landmark preprocessing (flatten) - 543 landmarks * 3 coords = 1629 dims
     landmarks_flat = landmarks.flatten()
-    
-    # Alphabet modeli 324-dim landmark kullanıyor, 1629'a pad et
-    if len(landmarks_flat) < 1629:
-        landmarks_flat = np.pad(landmarks_flat, (0, 1629 - len(landmarks_flat)), mode='constant')
-    elif len(landmarks_flat) > 1629:
-        landmarks_flat = landmarks_flat[:1629]
-    
+
+    # Boyut uyumu: model 1629-dim bekliyor (468 yüz + 33 pose + 21+21 el = 543 * 3)
+    expected_dim = 543 * 3  # 1629
+    if len(landmarks_flat) < expected_dim:
+        landmarks_flat = np.pad(landmarks_flat, (0, expected_dim - len(landmarks_flat)), mode='constant')
+    elif len(landmarks_flat) > expected_dim:
+        landmarks_flat = landmarks_flat[:expected_dim]
+
     landmark_tensor = torch.from_numpy(landmarks_flat).float().unsqueeze(0).to(device)
     
     # Tahmin

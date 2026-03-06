@@ -76,13 +76,13 @@ class LandmarkExtractor:
         """
         landmarks_list = []
         
-        # Yüz landmark'ları (sadece ilk 33 nokta - veri toplama ile uyumlu)
+        # Yüz landmark'ları (tüm 468 nokta - model 1629-dim bekliyor: 468+33+21+21=543 * 3)
         if results.face_landmarks:
-            face = np.array([[lm.x, lm.y, lm.z] for lm in results.face_landmarks.landmark[:33]])
+            face = np.array([[lm.x, lm.y, lm.z] for lm in results.face_landmarks.landmark])
             landmarks_list.append(face.flatten())
         else:
-            # Yüz bulunamadıysa sıfırlarla doldur (33 * 3 = 99)
-            landmarks_list.append(np.zeros(33 * LANDMARK_DIM))
+            # Yüz bulunamadıysa sıfırlarla doldur (468 * 3 = 1404)
+            landmarks_list.append(np.zeros(NUM_FACE_LANDMARKS * LANDMARK_DIM))
         
         # Pose landmark'ları (33 nokta)
         if results.pose_landmarks:

@@ -30,6 +30,9 @@ python-multipart>=0.0.6
 pyttsx3>=2.90
 gtts>=2.5.0
 
+# YOLO (işaret kelime tanıma)
+ultralytics>=8.0.0
+
 # Yardımcı kütüphaneler
 tqdm>=4.65.0
 pyyaml>=6.0
