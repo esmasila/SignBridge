@@ -43,6 +43,11 @@ ENV/
 checkpoints/*.pt
 yolo_runs/
 
+# AUTSL Transformer büyük dosyalar
+autsl_transformer/old_model/
+autsl_transformer/all_test_packed.npz
+autsl_transformer/__pycache__/
+
 # YOLO dataset (6GB - GitHub'a eklenmemeli)
 turk_isaret_yolo/train/
 turk_isaret_yolo/valid/
