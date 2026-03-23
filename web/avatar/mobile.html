@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#08090e">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.json">
+<title>SignBridge</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;touch-action:none}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#08090e;color:#e2e8f0}
+
+/* ── Layout ── */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.tab-content{flex:1;overflow:hidden;display:none;flex-direction:column}
+.tab-content.active{display:flex}
+
+/* ── Header ── */
+.header{display:flex;align-items:center;gap:8px;padding:10px 16px;background:#0f111a;border-bottom:1px solid #1f2535;flex-shrink:0}
+.header .logo{font-weight:800;font-size:1rem;background:linear-gradient(135deg,#6c63ff,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.header .badge{padding:2px 8px;border-radius:10px;font-size:.65rem;font-weight:700;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
+
+/* ── Bottom Tab Bar ── */
+.tab-bar{display:flex;background:#0f111a;border-top:1px solid #1f2535;flex-shrink:0;padding-bottom:env(safe-area-inset-bottom)}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:8px 0 6px;border:none;background:none;color:#64748b;font-size:.68rem;font-weight:600;cursor:pointer;transition:color .2s}
+.tab-btn.active{color:#a78bfa}
+.tab-btn svg{width:22px;height:22px;fill:currentColor}
+.tab-btn.active svg{fill:#a78bfa}
+
+/* ── Camera Tab ── */
+#camera-tab{position:relative}
+#video-wrap{flex:1;position:relative;overflow:hidden;background:#000}
+#video-wrap video{width:100%;height:100%;object-fit:cover}
+#video-wrap canvas{display:none}
+#cam-overlay{position:absolute;inset:0;display:flex;flex-direction:column;pointer-events:none}
+#cam-top{padding:12px 16px;display:flex;justify-content:space-between;align-items:flex-start}
+#cam-status{padding:4px 12px;border-radius:12px;font-size:.72rem;font-weight:600;background:rgba(0,0,0,.55);color:#94a3b8;backdrop-filter:blur(8px)}
+#cam-status.detecting{color:#22c55e}
+#cam-fps{padding:4px 10px;border-radius:12px;font-size:.65rem;font-weight:600;background:rgba(0,0,0,.55);color:#64748b;backdrop-filter:blur(8px)}
+#cam-bottom{margin-top:auto;padding:16px}
+#sentence-box{background:rgba(15,17,26,.88);backdrop-filter:blur(12px);border-radius:16px;border:1px solid #1f2535;padding:14px 16px;min-height:80px}
+#sentence-label{font-size:.65rem;font-weight:700;color:#6c63ff;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+#sentence-words{display:flex;flex-wrap:wrap;gap:6px;min-height:28px}
+.word-chip{padding:5px 12px;border-radius:20px;font-size:.82rem;font-weight:600;background:#6c63ff22;color:#a78bfa;border:1px solid #6c63ff44;animation:chipIn .3s ease}
+.word-chip.latest{background:#6c63ff;color:#fff;border-color:#6c63ff}
+@keyframes chipIn{from{transform:scale(.7);opacity:0}to{transform:scale(1);opacity:1}}
+#sentence-turkish{margin-top:8px;font-size:.85rem;color:#e2e8f0;font-style:italic;min-height:20px}
+#sentence-words.complete .word-chip{background:#22c55e30;border-color:#22c55e}
+#sentence-history{max-height:120px;overflow-y:auto;margin-top:8px}
+.history-item{display:flex;justify-content:space-between;padding:6px 10px;margin:4px 0;background:#1a1d2e;border-radius:8px;border-left:3px solid #6c63ff;font-size:.8rem}
+.hist-text{color:#cbd5e1}.hist-time{color:#64748b;font-size:.7rem}
+#cam-actions{display:flex;gap:8px;margin-top:10px;pointer-events:auto}
+.cam-btn{flex:1;padding:10px;border-radius:12px;border:none;font-weight:700;font-size:.8rem;cursor:pointer;transition:all .15s}
+.cam-btn:active{transform:scale(.95)}
+.cam-btn-clear{background:#1f2535;color:#94a3b8}
+.cam-btn-speak{background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
+.cam-btn-speak:disabled{opacity:.4}
+
+/* ── Avatar Tab ── */
+#avatar-tab{position:relative}
+#avatar-canvas-wrap{flex:1;position:relative;overflow:hidden}
+#avatar-loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#08090e;z-index:50}
+.spinner{width:36px;height:36px;border:3px solid #1f2535;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-label{font-size:.82rem;color:#64748b}
+#avatar-status{position:absolute;top:12px;left:50%;transform:translateX(-50%);padding:5px 14px;border-radius:14px;font-size:.75rem;font-weight:600;background:rgba(108,99,255,.75);color:#fff;z-index:10;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .3s;opacity:0}
+#avatar-word{display:none}
+#avatar-progress{position:absolute;bottom:0;left:0;height:3px;background:#6c63ff;width:0%;z-index:10;transition:width .1s}
+
+#avatar-input-area{flex-shrink:0;padding:12px 16px;background:#0f111a;border-top:1px solid #1f2535}
+#avatar-input-row{display:flex;gap:8px}
+#avatar-text{flex:1;padding:12px 16px;border-radius:14px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.92rem;outline:none;resize:none;font-family:inherit}
+#avatar-text:focus{border-color:#6c63ff}
+#avatar-text::placeholder{color:#475569}
+#avatar-send{width:50px;height:50px;border-radius:14px;border:none;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s}
+#avatar-send:active{transform:scale(.92)}
+#avatar-send:disabled{opacity:.4}
+#avatar-send svg{width:22px;height:22px;fill:#fff}
+#avatar-gloss{font-size:.7rem;color:#64748b;margin-top:6px;min-height:16px;padding:0 4px}
+#avatar-gloss span{color:#a78bfa;font-weight:600}
+
+/* word chips in avatar area */
+#avatar-word-chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;min-height:0}
+.a-chip{padding:3px 10px;border-radius:14px;font-size:.72rem;font-weight:600;background:#161924;color:#64748b;border:1px solid #1f2535;transition:all .2s}
+.a-chip.playing{background:#6c63ff;color:#fff;border-color:#6c63ff}
+.a-chip.done{background:#22c55e22;color:#22c55e;border-color:#22c55e44}
+.a-chip.skip{background:#f59e0b22;color:#f59e0b;border-color:#f59e0b44;text-decoration:line-through}
+
+/* Install banner */
+#install-banner{display:none;position:fixed;top:0;left:0;right:0;padding:10px 16px;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;font-size:.82rem;font-weight:600;text-align:center;z-index:999;cursor:pointer}
+</style>
+</head>
+<body>
+
+<div id="install-banner" onclick="installPWA()">Ana ekrana ekle</div>
+
+<div id="app">
+
+  <!-- ═══════════════ CAMERA TAB ═══════════════ -->
+  <div id="camera-tab" class="tab-content active">
+    <div class="header">
+      <span class="logo">SignBridge</span>
+      <span class="badge">Kamera</span>
+    </div>
+    <div id="video-wrap">
+      <video id="cam-video" autoplay playsinline muted></video>
+      <canvas id="cam-canvas"></canvas>
+      <div id="cam-overlay">
+        <div id="cam-top">
+          <div id="cam-status">Kamera baslatiliyor...</div>
+          <div id="cam-fps"></div>
+        </div>
+        <div id="cam-bottom">
+          <div id="sentence-box">
+            <div id="sentence-label">Taninen Kelimeler</div>
+            <div id="sentence-words"></div>
+            <div id="sentence-turkish"></div>
+            <div id="cam-actions">
+              <button class="cam-btn cam-btn-clear" onclick="clearSentence()">Temizle</button>
+              <button class="cam-btn cam-btn-speak" id="btn-speak" disabled onclick="speakSentence()">Seslendir</button>
+            </div>
+          </div>
+          <div id="sentence-history"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ AVATAR TAB ═══════════════ -->
+  <div id="avatar-tab" class="tab-content">
+    <div class="header">
+      <span class="logo">SignBridge</span>
+      <span class="badge">Avatar</span>
+    </div>
+    <div id="avatar-canvas-wrap">
+      <div id="avatar-loading"><div class="spinner"></div><div class="load-label" id="av-load-label">Avatar yukleniyor...</div></div>
+      <div id="avatar-status"></div>
+      <div id="avatar-word"></div>
+      <div id="avatar-progress"></div>
+    </div>
+    <div id="avatar-input-area">
+      <div id="avatar-input-row">
+        <textarea id="avatar-text" rows="1" placeholder="Turkce cumle yaz..." oninput="autoGrow(this)"></textarea>
+        <button id="avatar-send" onclick="processAndPlay()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+      <div id="avatar-gloss"></div>
+      <div id="avatar-word-chips"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ TAB BAR ═══════════════ -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('camera')">
+      <svg viewBox="0 0 24 24"><path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>
+      Kamera
+    </button>
+    <button class="tab-btn" onclick="switchTab('avatar')">
+      <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+      Avatar
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════ CAMERA LOGIC ═══════════════ -->
+<script>
+// ── Tab switching ──
+function switchTab(tab){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(tab==='camera'){
+    document.getElementById('camera-tab').classList.add('active');
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  } else {
+    document.getElementById('avatar-tab').classList.add('active');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    if(!avatarInitialized) initAvatar();
+  }
+}
+
+// ── Auto-grow textarea ──
+function autoGrow(el){
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,120)+'px';
+}
+
+// ── PWA Install ──
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  document.getElementById('install-banner').style.display='block';
+});
+function installPWA(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{
+    document.getElementById('install-banner').style.display='none';
+    deferredPrompt=null;
+  });
+}
+
+// ── Camera ──
+const video=document.getElementById('cam-video');
+const canvas=document.getElementById('cam-canvas');
+const ctx=canvas.getContext('2d');
+let camStream=null;
+let camRunning=false;
+let sentenceWords=[];
+let lastHandTime=0;
+let sentenceComplete=false;
+let frameCount=0;
+let fpsTime=Date.now();
+let fps=0;
+let lastAddedWord='';
+let sameWordCount=0;
+let pastSentences=[];
+const CONF_THRESHOLD=0.75;
+const SAME_WORD_MAX=3; // ignore after this many consecutive same predictions
+
+async function startCamera(){
+  console.log('[CAM] startCamera called');
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      const gum = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+      if(!gum){
+        console.error('[CAM] No camera API available');
+        document.getElementById('cam-status').textContent='Bu tarayici kamerayi desteklemiyor. HTTPS veya localhost gerekli.';
+        return;
+      }
+      console.log('[CAM] Using legacy getUserMedia');
+      camStream = await new Promise((ok,fail)=>gum.call(navigator,{video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false},ok,fail));
+    } else {
+      console.log('[CAM] Using modern getUserMedia');
+      camStream=await navigator.mediaDevices.getUserMedia({
+        video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},
+        audio:false
+      });
+    }
+    console.log('[CAM] Got stream, setting video source');
+    video.srcObject=camStream;
+    await video.play();
+    canvas.width=640;canvas.height=480;
+    camRunning=true;
+    console.log('[CAM] Camera running, starting captureLoop');
+    document.getElementById('cam-status').textContent='Hazir - isaret yapin';
+    document.getElementById('cam-status').classList.add('detecting');
+    captureLoop();
+  }catch(e){
+    document.getElementById('cam-status').textContent='Kamera erisimi reddedildi: '+e.message;
+    console.error('[CAM] Camera error:',e);
+  }
+}
+
+const SEND_INTERVAL=100; // ms between frame sends (~10fps)
+let lastSendTime=0;
+let pendingRequest=false;
+
+function captureLoop(){
+  if(!camRunning)return;
+  requestAnimationFrame(captureLoop);
+
+  const now=Date.now();
+  // FPS counter
+  frameCount++;
+  if(now-fpsTime>=1000){
+    fps=frameCount;
+    frameCount=0;
+    fpsTime=now;
+    document.getElementById('cam-fps').textContent=fps+'fps';
+  }
+
+  // Throttle frame sending
+  if(now-lastSendTime<SEND_INTERVAL||pendingRequest)return;
+  lastSendTime=now;
+
+  // Flip horizontally for front camera (mirror fix)
+  ctx.save();
+  ctx.scale(-1,1);
+  ctx.drawImage(video,-canvas.width,0,canvas.width,canvas.height);
+  ctx.restore();
+  const jpeg=canvas.toDataURL('image/jpeg',0.92);
+  const b64=jpeg.split(',')[1];
+
+  pendingRequest=true;
+  fetch('/predict_frame',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({image_base64:b64})
+  })
+  .then(r=>{console.log('[CAM] Response status:',r.status);return r.json()})
+  .then(d=>{
+    pendingRequest=false;
+    console.log('[CAM] Prediction:',d.prediction_text,d.confidence,d.message||'');
+    if(!d.success){console.log('[CAM] Not success:',d.error);return;}
+
+    // Hand detection status
+    if(d.hands_detected){
+      lastHandTime=Date.now();
+      sentenceComplete=false;
+      document.getElementById('cam-status').textContent='El algilandi';
+      document.getElementById('cam-status').classList.add('detecting');
+    } else {
+      document.getElementById('cam-status').textContent=d.message||'Bekleniyor...';
+      document.getElementById('cam-status').classList.remove('detecting');
+    }
+
+    // New prediction with confidence filter
+    if(d.prediction_text && d.confidence>CONF_THRESHOLD){
+      addWord(d.prediction_text,d.confidence);
+    }
+
+    // Sentence completion: 2 seconds without hands
+    if(sentenceWords.length>0 && !sentenceComplete && !d.hands_detected && Date.now()-lastHandTime>2000){
+      completeSentence();
+    }
+
+    // New sentence starts when hands come back after completion
+    if(sentenceComplete && d.hands_detected){
+      // Archive current sentence and start fresh
+      archiveSentence();
+    }
+
+    // Show buffer/message info
+    if(d.message){
+      document.getElementById('cam-status').textContent=d.message;
+    }
+  })
+  .catch(e=>{
+    pendingRequest=false;
+  });
+}
+
+function addWord(word,conf){
+  if(sentenceComplete) return; // sentence done, wait for archive
+  // Track same word predictions
+  if(word===lastAddedWord){
+    sameWordCount++;
+    if(sameWordCount>SAME_WORD_MAX) return; // too many same predictions, skip
+  } else {
+    sameWordCount=0;
+  }
+  lastAddedWord=word;
+  // Don't add same word twice in a row to sentence
+  if(sentenceWords.length>0&&sentenceWords[sentenceWords.length-1]===word)return;
+  sentenceWords.push(word);
+  renderWords();
+  document.getElementById('btn-speak').disabled=false;
+}
+
+function renderWords(){
+  const container=document.getElementById('sentence-words');
+  container.innerHTML='';
+  sentenceWords.forEach((w,i)=>{
+    const chip=document.createElement('span');
+    chip.className='word-chip'+(i===sentenceWords.length-1?' latest':'');
+    chip.textContent=w;
+    container.appendChild(chip);
+  });
+}
+
+function completeSentence(){
+  sentenceComplete=true;
+  const turkish=sentenceWords.map(w=>w.charAt(0)+w.slice(1).toLowerCase()).join(' ');
+  document.getElementById('sentence-turkish').textContent=turkish;
+  // Visual feedback
+  document.getElementById('sentence-words').classList.add('complete');
+}
+
+function archiveSentence(){
+  if(sentenceWords.length>0){
+    const turkish=document.getElementById('sentence-turkish').textContent||sentenceWords.join(' ');
+    pastSentences.unshift({words:[...sentenceWords],turkish:turkish,time:new Date()});
+    renderHistory();
+  }
+  // Reset for new sentence
+  sentenceWords=[];
+  sentenceComplete=false;
+  lastAddedWord='';
+  sameWordCount=0;
+  document.getElementById('sentence-words').innerHTML='';
+  document.getElementById('sentence-words').classList.remove('complete');
+  document.getElementById('sentence-turkish').textContent='';
+  fetch('/reset_buffer',{method:'POST'});
+}
+
+function renderHistory(){
+  const hist=document.getElementById('sentence-history');
+  if(!hist)return;
+  hist.innerHTML='';
+  pastSentences.slice(0,10).forEach(s=>{
+    const div=document.createElement('div');
+    div.className='history-item';
+    div.innerHTML='<span class="hist-text">'+s.turkish+'</span><span class="hist-time">'+s.time.toLocaleTimeString('tr')+'</span>';
+    hist.appendChild(div);
+  });
+}
+
+function clearSentence(){
+  sentenceWords=[];
+  sentenceComplete=false;
+  lastAddedWord='';
+  sameWordCount=0;
+  document.getElementById('sentence-words').innerHTML='';
+  document.getElementById('sentence-words').classList.remove('complete');
+  document.getElementById('sentence-turkish').textContent='';
+  document.getElementById('btn-speak').disabled=true;
+  fetch('/reset_buffer',{method:'POST'});
+}
+
+function speakSentence(){
+  if(sentenceWords.length===0)return;
+  const text=sentenceWords.join(' ');
+  fetch('/tts',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({text:text,lang:'tr'})
+  })
+  .then(r=>r.blob())
+  .then(blob=>{
+    const url=URL.createObjectURL(blob);
+    const a=new Audio(url);
+    a.play();
+  })
+  .catch(e=>console.error('TTS error:',e));
+}
+
+// Start camera when page loads (camera tab is default)
+document.addEventListener('DOMContentLoaded',()=>startCamera());
+</script>
+
+<!-- ═══════════════ AVATAR LOGIC (Three.js) ═══════════════ -->
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Avatar State ──
+let avatarInitialized=false;
+let scene,renderer,camera,controls,mixer,avatarClock;
+let avatar=null, savedPoses={}, bones={}, tLocalQ={}, avReady=false;
+let _playing=false, _stopFlag=false;
+
+window.avatarInitialized=false;
+
+function initAvatar(){
+  if(avatarInitialized)return;
+  avatarInitialized=true;
+  window.avatarInitialized=true;
+
+  const wrap=document.getElementById('avatar-canvas-wrap');
+
+  // Scene
+  scene=new THREE.Scene();
+  const bgC=document.createElement('canvas');bgC.width=4;bgC.height=256;
+  const bgX=bgC.getContext('2d');
+  const g=bgX.createLinearGradient(0,0,0,256);
+  g.addColorStop(0,'#1a1c2e');g.addColorStop(1,'#08090e');
+  bgX.fillStyle=g;bgX.fillRect(0,0,4,256);
+  scene.background=new THREE.CanvasTexture(bgC);
+
+  // Renderer
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true;
+  renderer.outputColorSpace=THREE.SRGBColorSpace;
+  renderer.toneMapping=THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure=1.1;
+  wrap.appendChild(renderer.domElement);
+
+  // Camera
+  camera=new THREE.PerspectiveCamera(32,1,.01,200);
+  camera.position.set(0,1.4,4.5);
+
+  // Controls
+  controls=new OrbitControls(camera,renderer.domElement);
+  controls.target.set(0,1.2,0);
+  controls.enableDamping=true;controls.dampingFactor=.07;
+  controls.enablePan=false;
+  controls.update();
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff,.6));
+  const key=new THREE.DirectionalLight(0xffeedd,2.2);key.position.set(1.5,3,2);key.castShadow=true;scene.add(key);
+  const fill=new THREE.DirectionalLight(0x8888ff,.9);fill.position.set(-2,1,-1);scene.add(fill);
+  const rim=new THREE.DirectionalLight(0xa78bfa,1.0);rim.position.set(0,2,-3);scene.add(rim);
+
+  // Floor
+  const floor=new THREE.Mesh(new THREE.CircleGeometry(2,64),new THREE.MeshStandardMaterial({color:0x0f111a,roughness:.9}));
+  floor.rotation.x=-Math.PI/2;floor.receiveShadow=true;scene.add(floor);
+
+  // Resize
+  function resize(){
+    const w=wrap.clientWidth,h=wrap.clientHeight;
+    if(w<=0||h<=0)return;
+    renderer.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize',resize);
+  setTimeout(resize,50);
+
+  // Animation loop
+  avatarClock=new THREE.Clock();
+  (function loop(){
+    requestAnimationFrame(loop);
+    if(mixer)mixer.update(avatarClock.getDelta());
+    controls.update();
+    renderer.render(scene,camera);
+  })();
+
+  // Load avatar
+  const loader=new GLTFLoader();
+  loader.load('rain.glb',
+    gltf=>{
+      avatar=gltf.scene;
+      avatar.traverse(o=>{
+        o.castShadow=true;
+        if(o.isMesh)o.receiveShadow=true;
+        if(o.isBone)bones[o.name]=o;
+      });
+      avatar.scale.setScalar(1);avatar.position.set(0,0,0);
+      scene.add(avatar);avatar.updateMatrixWorld(true);
+
+      const bb=new THREE.Box3();
+      avatar.traverse(o=>{if(o.isMesh||o.isSkinnedMesh)bb.expandByObject(o);});
+      const h=bb.isEmpty()?1:(bb.max.y-bb.min.y);
+      const sc=h>.01?1.7/h:1;
+      avatar.scale.setScalar(sc);
+      avatar.position.set(0,-(bb.isEmpty()?0:bb.min.y)*sc,0);
+      avatar.updateMatrixWorld(true);
+
+      const fb=new THREE.Box3().setFromObject(avatar);
+      const ctr=new THREE.Vector3();fb.getCenter(ctr);
+      const sz=new THREE.Vector3();fb.getSize(sz);
+      camera.position.set(0,ctr.y,sz.y*1.8);
+      controls.target.set(0,ctr.y,0);controls.update();
+
+      // Save T-pose
+      avatar.traverse(o=>{if(o.isBone)tLocalQ[o.name]=o.quaternion.clone();});
+
+      // Fix avatar appearance
+      applyIdlePose();
+      fixHairGravity();
+      addEyePupils();
+
+      avReady=true;
+      document.getElementById('avatar-loading').style.display='none';
+      avSetStatus('Avatar yuklendi, pozlar yukleniyor...',0);
+
+      // Load poses
+      fetch('/api/list-poses').then(r=>r.json()).then(d=>{
+        if(d.poses){
+          savedPoses=d.poses;
+          avSetStatus(Object.keys(savedPoses).length+' poz yuklendi',2500);
+        }
+      }).catch(()=>avSetStatus('Pozlar yuklenemedi',3000));
+
+      resize();
+    },
+    xhr=>{
+      if(xhr.total)document.getElementById('av-load-label').textContent='%'+Math.round(xhr.loaded/xhr.total*100)+' yuklendi';
+    },
+    err=>{
+      document.getElementById('avatar-loading').style.display='none';
+      avSetStatus('Avatar yuklenemedi!',0);
+    }
+  );
+}
+
+// ── Avatar Fixes ──
+const IDLE_POSE = {
+  'FK-UpperarmR': {x:0.15, y:0.2, z:0.8},
+  'FK-UpperarmL': {x:0.15, y:-0.2, z:-0.8}
+};
+function applyIdlePose(){
+  if(!avReady)return;
+  for(const boneId in IDLE_POSE){
+    const bone=bones[boneId];
+    if(!bone||!tLocalQ[boneId])continue;
+    const r=IDLE_POSE[boneId];
+    const euler=new THREE.Euler(r.x,r.y,r.z,'XYZ');
+    const q=new THREE.Quaternion().setFromEuler(euler);
+    bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+  }
+}
+function fixHairGravity(){
+  if(!avReady)return;
+  ['FK-Hair_Ponytail1','FK-Hair_Ponytail2','FK-Hair_Ponytail3','FK-Hair_Ponytail4'].forEach((name,i)=>{
+    const b=bones[name];if(!b)return;
+    const euler=new THREE.Euler((i+1)*0.15,0,0,'XYZ');
+    const q=new THREE.Quaternion().setFromEuler(euler);
+    b.quaternion.copy(tLocalQ[name].clone().multiply(q));
+  });
+}
+function addEyePupils(){
+  if(!avatar)return;
+  avatar.traverse(o=>{
+    if(!o.isMesh&&!o.isSkinnedMesh)return;
+    const n=(o.name||'').toLowerCase();
+    if(n.includes('eye')&&!n.includes('brow')&&!n.includes('lash')&&!n.includes('lid')){
+      const pupil=new THREE.Mesh(
+        new THREE.SphereGeometry(0.004,16,16),
+        new THREE.MeshStandardMaterial({color:0x111111,roughness:0.2})
+      );
+      pupil.position.set(0,0,0.008);
+      o.add(pupil);
+    }
+  });
+}
+
+// ── Pose Application ──
+function applyPoseWithT(pose,t){
+  for(const name in tLocalQ){
+    if(bones[name])bones[name].quaternion.copy(tLocalQ[name]);
+  }
+  if(!pose||t<=0)return;
+  for(const boneId in pose){
+    const bone=bones[boneId];
+    if(!bone||!tLocalQ[boneId])continue;
+    const r=pose[boneId];
+    const euler=new THREE.Euler(r.x*t,r.y*t,r.z*t,'XYZ');
+    const q=new THREE.Quaternion().setFromEuler(euler);
+    bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+  }
+}
+
+function lerpPose(poseA,poseB,t){
+  const mixed={};
+  const allBones=new Set([...Object.keys(poseA||{}),...Object.keys(poseB||{})]);
+  for(const boneId of allBones){
+    const a=(poseA&&poseA[boneId])||{x:0,y:0,z:0};
+    const b=(poseB&&poseB[boneId])||{x:0,y:0,z:0};
+    mixed[boneId]={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t};
+  }
+  applyPoseWithT(mixed,1);
+}
+
+// ── Play Single Word ──
+async function playWordAvatar(word){
+  let poseData=savedPoses[word];
+  if(!poseData)return false;
+
+  const keyframes=Array.isArray(poseData)?poseData:[poseData];
+  const speed=1.0;
+  const steps=20;
+  const frameDelay=20/speed;
+
+  // Phase 1: T-pose -> first keyframe
+  for(let i=0;i<=steps&&!_stopFlag;i++){
+    applyPoseWithT(keyframes[0],i/steps);
+    await new Promise(r=>setTimeout(r,frameDelay));
+  }
+
+  // Keyframe transitions
+  for(let k=0;k<keyframes.length-1&&!_stopFlag;k++){
+    await new Promise(r=>setTimeout(r,200/speed));
+    for(let i=0;i<=steps&&!_stopFlag;i++){
+      lerpPose(keyframes[k],keyframes[k+1],i/steps);
+      await new Promise(r=>setTimeout(r,frameDelay));
+    }
+  }
+
+  // Hold
+  if(!_stopFlag)await new Promise(r=>setTimeout(r,600/speed));
+
+  // Last keyframe -> T-pose
+  const lastKF=keyframes[keyframes.length-1];
+  for(let i=steps;i>=0&&!_stopFlag;i--){
+    applyPoseWithT(lastKF,i/steps);
+    await new Promise(r=>setTimeout(r,frameDelay));
+  }
+
+  applyIdlePose();
+  return true;
+}
+
+// ── NLP: Turkish sentence -> sign glosses ──
+function turkishToASCII(s){
+  return s.replace(/ş/gi,'S').replace(/ç/gi,'C').replace(/ğ/gi,'G')
+          .replace(/ü/gi,'U').replace(/ö/gi,'O').replace(/ı/g,'I')
+          .replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ç/g,'C')
+          .replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ö/g,'O');
+}
+
+const STOP_WORDS=new Set([
+  'BIR','BIRI','BIRISI','BIRKAC','VE','ILE','VEYA','AMA','FAKAT','ANCAK','YANI',
+  'DA','DE','MI','MU','DIR','TIR','DUR','TUR','KI','ICIN',
+  'BU','SU','O','BUNU','SUNU','ONU','BUNUN','SUNUN','ONUN',
+  'BANA','SANA','ONA','BIZE','SIZE','ONLARA',
+  'BENIM','SENIN','ONUN','BIZIM','SIZIN','ONLARIN',
+  'NE','NASIL','NEREDE','NEREYE','NEREDEN','NEDEN','NIYE','KIM','KIMIN',
+  'COK','AZ','BIRAZ','DAHA','EN','VAR','YOK','OLAN','OLMAYAN',
+  'GIBI','KADAR','GORE',
+]);
+
+function stemTurkish(word){
+  const w=word.toUpperCase();
+  const suffixes=[
+    'IYORUM','UYORUM','IYORSUN','UYORSUN','IYOR','UYOR',
+    'ACAGIM','ECEGIM','ACAKSIN','ECEKSIN','ACAK','ECEK',
+    'IYORUZ','UYORUZ','IYORLAR','UYORLAR',
+    'MISTIM','MUSTUM','MISTI','MUSTU',
+    'MISSIN','MUSSUN','MISIN','MUSUN','MIYIM','MUYUM',
+    'DIM','DUM','DIN','DUN','DI','DU',
+    'TIM','TUM','TIN','TUN','TI','TU',
+    'YIM','YUM','YIN','YUN',
+    'MAK','MEK','MASI','MESI',
+    'LARIN','LERIN','LARI','LERI',
+    'LARA','LERE','LARDAN','LERDEN',
+    'IMIZ','UMUZ','INIZ','UNUZ',
+    'INDA','UNDA','INDE','UNDE',
+    'INDAN','UNDAN','INDEN','UNDEN',
+    'INA','UNA','INE','UNE',
+    'INI','UNU','NIN','NUN',
+    'DAN','DEN','TAN','TEN',
+    'DA','DE','TA','TE',
+    'YA','YE','NA','NE',
+    'NI','NU','IN','UN',
+    'IM','UM','A','E',
+  ];
+  for(const s of suffixes){
+    if(w.length>s.length+2&&w.endsWith(s)) return w.slice(0,-s.length);
+  }
+  return w;
+}
+
+function findMatchingWord(word){
+  const w=turkishToASCII(word).toUpperCase();
+  if(savedPoses[w])return w;
+  const stemmed=stemTurkish(w);
+  if(savedPoses[stemmed])return stemmed;
+  for(const poseWord of Object.keys(savedPoses)){
+    if(stemTurkish(poseWord)===stemmed)return poseWord;
+    if(poseWord.startsWith(stemmed)||stemmed.startsWith(poseWord))return poseWord;
+  }
+  return null;
+}
+
+// ── Process & Play Sentence ──
+window.processAndPlay=async function(){
+  const input=document.getElementById('avatar-text').value.trim();
+  if(!input||!avReady||_playing)return;
+
+  const rawWords=input.split(/\s+/);
+  const glossWords=[];
+  const allTokens=[];
+
+  for(const raw of rawWords){
+    const ascii=turkishToASCII(raw).toUpperCase();
+    if(STOP_WORDS.has(ascii)){
+      allTokens.push({word:ascii,status:'stop'});
+      continue;
+    }
+    const match=findMatchingWord(raw);
+    if(match){
+      if(glossWords.length===0||glossWords[glossWords.length-1]!==match){
+        glossWords.push(match);
+        allTokens.push({word:match,status:'found'});
+      }
+    } else {
+      allTokens.push({word:ascii,status:'missing'});
+    }
+  }
+
+  if(glossWords.length===0){
+    avSetStatus('Eslesen kelime bulunamadi',3000);
+    return;
+  }
+
+  // Show gloss info
+  document.getElementById('avatar-gloss').innerHTML='Isaret: <span>'+glossWords.join(' → ')+'</span>';
+
+  // Render word chips
+  const chipsEl=document.getElementById('avatar-word-chips');
+  chipsEl.innerHTML='';
+  glossWords.forEach(w=>{
+    const chip=document.createElement('span');
+    chip.className='a-chip';
+    chip.id='achip-'+w;
+    chip.textContent=w;
+    chipsEl.appendChild(chip);
+  });
+
+  _playing=true;_stopFlag=false;
+  document.getElementById('avatar-send').disabled=true;
+
+  const totalWords=glossWords.length;
+  for(let i=0;i<totalWords;i++){
+    if(_stopFlag)break;
+    const w=glossWords[i];
+
+    // Highlight current chip
+    document.querySelectorAll('.a-chip').forEach(c=>c.classList.remove('playing'));
+    const chip=document.getElementById('achip-'+w);
+    if(chip)chip.classList.add('playing');
+
+    // Show word on avatar
+    const wordEl=document.getElementById('avatar-word');
+    wordEl.textContent=w;wordEl.style.opacity='1';
+
+    // Progress
+    document.getElementById('avatar-progress').style.width=((i/totalWords)*100)+'%';
+
+    const played=await playWordAvatar(w);
+    if(chip){
+      chip.classList.remove('playing');
+      chip.classList.add(played?'done':'skip');
+    }
+
+    wordEl.style.opacity='0';
+
+    if(!_stopFlag&&i<totalWords-1)await new Promise(r=>setTimeout(r,300));
+  }
+
+  document.getElementById('avatar-progress').style.width='100%';
+  setTimeout(()=>{document.getElementById('avatar-progress').style.width='0%';},500);
+
+  _playing=false;
+  document.getElementById('avatar-send').disabled=false;
+  applyIdlePose();
+  fixHairGravity();
+};
+
+// ── Avatar Helpers ──
+let _avStTimer=null;
+function avSetStatus(msg,dur=0){
+  const el=document.getElementById('avatar-status');
+  el.textContent=msg;el.style.opacity='1';
+  if(_avStTimer)clearTimeout(_avStTimer);
+  if(dur>0)_avStTimer=setTimeout(()=>el.style.opacity='0',dur);
+}
+
+// Handle Enter key in textarea
+document.getElementById('avatar-text').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){
+    e.preventDefault();
+    processAndPlay();
+  }
+});
+
+// Expose initAvatar
+window.initAvatar=initAvatar;
+</script>
+
+</body>
+</html>

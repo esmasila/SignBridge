@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Step 4 — Blender Animasyon Oynatıcı</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',sans-serif;background:#08090e;color:#e2e8f0;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+#topbar{display:flex;align-items:center;gap:10px;padding:0 16px;height:52px;background:#0f111a;border-bottom:1px solid #1f2535;flex-shrink:0}
+.logo{font-weight:700;font-size:.95rem;color:#a78bfa}
+.badge{padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
+#glossInput{flex:1;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none}
+#glossInput:focus{border-color:#6c63ff}
+.btn{padding:8px 15px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:.82rem;transition:all .15s}
+.btn:active{transform:scale(.96)}
+.btn-accent{background:#6c63ff;color:#fff}
+.btn-accent:hover{background:#5a52e0}
+.btn-gray{background:#161924;color:#64748b;border:1px solid #1f2535}
+.speed-wrap{display:flex;align-items:center;gap:5px;font-size:.75rem;color:#64748b}
+#speedRange{width:68px;height:4px;-webkit-appearance:none;background:#1f2535;border-radius:2px;outline:none;cursor:pointer}
+#speedRange::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#6c63ff}
+#speedVal{font-weight:600;color:#a78bfa;min-width:30px}
+
+#main{display:flex;flex:1;overflow:hidden}
+#canvas-col{flex:1;position:relative;overflow:hidden}
+canvas{display:block}
+
+#loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#08090e;z-index:50}
+.spinner{width:36px;height:36px;border:3px solid #1f2535;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.load-label{font-size:.82rem;color:#64748b}
+
+#status{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);padding:5px 14px;border-radius:14px;font-size:.75rem;font-weight:600;background:rgba(108,99,255,.75);color:#fff;z-index:10;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .3s;opacity:0}
+#word-display{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);font-size:1.4rem;font-weight:700;color:#fff;text-shadow:0 0 18px rgba(108,99,255,.8);z-index:10;pointer-events:none;opacity:0;transition:opacity .3s}
+#progress-bar{position:absolute;bottom:0;left:0;height:3px;background:#6c63ff;width:0%;z-index:10}
+
+#sidebar{width:200px;background:#0f111a;border-left:1px solid #1f2535;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+#sidebar-header{padding:10px 13px 7px;border-bottom:1px solid #1f2535;font-size:.72rem;font-weight:700;letter-spacing:.05em;color:#a78bfa;text-transform:uppercase}
+#word-list{flex:1;overflow-y:auto;padding:6px}
+.w-btn{display:block;width:100%;padding:7px 10px;margin-bottom:3px;border-radius:5px;border:1px solid transparent;background:transparent;color:#64748b;cursor:pointer;font-size:.78rem;text-align:left;transition:all .12s}
+.w-btn:hover{background:#161924;color:#e2e8f0;border-color:#1f2535}
+.w-btn.active{background:#6c63ff22;color:#a78bfa;border-color:#6c63ff55;font-weight:600}
+.w-btn .tag{font-size:.6rem;padding:1px 5px;border-radius:4px;margin-left:5px;font-weight:700}
+.tag-anim{background:#22c55e33;color:#22c55e}
+.tag-json{background:#f59e0b33;color:#f59e0b}
+
+#info-bar{padding:8px 13px;border-top:1px solid #1f2535;font-size:.7rem;color:#64748b;display:flex;flex-direction:column;gap:2px}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <span class="logo">SignBridge</span>
+  <span class="badge">Avatar</span>
+  <input id="sentenceInput" placeholder="Türkçe cümle yaz... (örn: merhaba baba nasılsın)" onkeydown="if(event.key==='Enter')processAndPlay()" style="flex:2;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none">
+  <button class="btn btn-accent" onclick="processAndPlay()">Cümle Oynat</button>
+  <input id="glossInput" placeholder="Tek kelime..." style="flex:1;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none" onkeydown="if(event.key==='Enter')playWord()">
+  <button class="btn btn-gray" onclick="playWord()">Kelime</button>
+  <button class="btn btn-gray" id="stopBtn" onclick="stopPlay()" style="display:none">Dur</button>
+  <div class="speed-wrap">
+    Hiz <input type="range" id="speedRange" min="0.3" max="2" step="0.1" value="1">
+    <span id="speedVal">1.0x</span>
+  </div>
+</div>
+
+<div id="main">
+  <div id="canvas-col">
+    <div id="loading"><div class="spinner"></div><div class="load-label" id="load-label">Rain yükleniyor...</div></div>
+    <div id="status"></div>
+    <div id="word-display"></div>
+    <div id="progress-bar"></div>
+  </div>
+  <div id="sidebar">
+    <div id="sidebar-header">Kelimeler</div>
+    <div id="word-list"></div>
+    <div id="info-bar">
+      <span>Anim: <span id="st-anim">—</span></span>
+      <span>Toplam: <span id="st-count">—</span></span>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ═══════════════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════════════
+const GLB_BASE = 'rain.glb';
+const GLB_ANIM = 'rain_animated.glb';
+
+// Speed slider
+const speedRange = document.getElementById('speedRange');
+const speedVal = document.getElementById('speedVal');
+speedRange.oninput = () => { speedVal.textContent = parseFloat(speedRange.value).toFixed(1)+'x'; };
+
+// ═══════════════════════════════════════════════
+// SCENE
+// ═══════════════════════════════════════════════
+const col = document.getElementById('canvas-col');
+const scene = new THREE.Scene();
+const params = new URLSearchParams(location.search);
+const isMobile = params.has('mobile');
+const isBright = params.has('bright');
+
+const bgC = document.createElement('canvas'); bgC.width=4; bgC.height=256;
+const bgX = bgC.getContext('2d');
+const g = bgX.createLinearGradient(0,0,0,256);
+if(isBright){g.addColorStop(0,'#2a2d4e');g.addColorStop(1,'#14162a')}
+else{g.addColorStop(0,'#1a1c2e');g.addColorStop(1,'#08090e')}
+bgX.fillStyle=g; bgX.fillRect(0,0,4,256);
+scene.background = new THREE.CanvasTexture(bgC);
+
+if(isMobile){
+  document.getElementById('topbar').style.display='none';
+  document.getElementById('sidebar').style.display='none';
+  document.getElementById('word-display').style.display='none';
+}
+// Expose speed control for mobile WebView
+window.setSpeed = function(val){ document.getElementById('speedRange').value = val; };
+window.getSpeed = function(){ return document.getElementById('speedRange').value; };
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.outputColorSpace=THREE.SRGBColorSpace;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=isBright?1.5:1.1;
+col.appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(32,1,.01,200);
+camera.position.set(0,1.4,4.5);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0,1.2,0);
+controls.enableDamping=true; controls.dampingFactor=.07;
+controls.update();
+
+scene.add(new THREE.AmbientLight(0xffffff,isBright?1.0:.6));
+const key=new THREE.DirectionalLight(0xffeedd,isBright?3.0:2.2); key.position.set(1.5,3,2); key.castShadow=true; scene.add(key);
+const fill=new THREE.DirectionalLight(0x8888ff,isBright?1.5:.9); fill.position.set(-2,1,-1); scene.add(fill);
+const rim=new THREE.DirectionalLight(0xa78bfa,isBright?1.5:1.0); rim.position.set(0,2,-3); scene.add(rim);
+if(isBright){const back=new THREE.DirectionalLight(0xffffff,1.0);back.position.set(0,0,3);scene.add(back)}
+
+const floor=new THREE.Mesh(new THREE.CircleGeometry(2,64),new THREE.MeshStandardMaterial({color:0x0f111a,roughness:.9}));
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+function resize(){
+  const w=col.clientWidth, h=col.clientHeight;
+  renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',resize); resize();
+
+// ═══════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════
+let mixer = null;
+const clock = new THREE.Clock();
+
+(function loop(){
+  requestAnimationFrame(loop);
+  if(mixer) mixer.update(clock.getDelta());
+  controls.update();
+  renderer.render(scene,camera);
+})();
+
+// ═══════════════════════════════════════════════
+// AVATAR + ANIMATIONS LOAD
+// ═══════════════════════════════════════════════
+let avatar = null;
+let savedPoses = {};  // JSON poses from pose editor
+let bones = {};
+let tLocalQ = {};     // T-pose quaternions
+let ready = false;
+
+const loader = new GLTFLoader();
+
+loader.load(GLB_BASE,
+  gltf => {
+    avatar = gltf.scene;
+    avatar.traverse(o => {
+      o.castShadow = true;
+      if(o.isMesh) o.receiveShadow = true;
+      if(o.isBone) bones[o.name] = o;
+    });
+
+    avatar.scale.setScalar(1); avatar.position.set(0,0,0);
+    scene.add(avatar); avatar.updateMatrixWorld(true);
+    const bb = new THREE.Box3();
+    avatar.traverse(o => { if(o.isMesh||o.isSkinnedMesh) bb.expandByObject(o); });
+    const h = bb.isEmpty()?1:(bb.max.y-bb.min.y);
+    const sc = h>.01?1.7/h:1;
+    avatar.scale.setScalar(sc);
+    avatar.position.set(0,-(bb.isEmpty()?0:bb.min.y)*sc,0);
+    avatar.updateMatrixWorld(true);
+
+    const fb = new THREE.Box3().setFromObject(avatar);
+    const ctr = new THREE.Vector3(); fb.getCenter(ctr);
+    const sz = new THREE.Vector3(); fb.getSize(sz);
+    if(isMobile){
+      // Mobile: show full avatar, no zoom needed, disable orbit controls
+      camera.position.set(0, ctr.y, sz.y*1.8);
+      controls.target.set(0, ctr.y, 0);
+      controls.enableZoom = false;
+      controls.enablePan = false;
+      controls.enableRotate = false;
+    } else {
+      camera.position.set(0, ctr.y+sz.y*.1, sz.y*1.5);
+      controls.target.set(0, ctr.y, 0);
+    }
+    controls.update();
+
+    // Save T-pose quaternions
+    avatar.traverse(o => { if(o.isBone) tLocalQ[o.name] = o.quaternion.clone(); });
+
+    // Apply idle pose (arms down instead of T-pose)
+    applyIdlePose();
+
+    // Fix ponytail hair (gravity)
+    fixHairGravity();
+
+    // Fix eyes (add pupils)
+    addEyePupils();
+
+    ready = true;
+    setLoad(false);
+    setStatus('Avatar yuklendi, pozlar yukleniyor...', 0);
+
+    // Load poses: try offline first (injected by mobile app), then server
+    function loadPoses(data){
+      savedPoses = data;
+      const count = Object.keys(savedPoses).length;
+      document.getElementById('st-count').textContent = count;
+      setStatus(count + ' poz yuklendi', 2500);
+      buildWordList();
+      console.info(`[Step4] ${count} poz yuklendi:`, Object.keys(savedPoses));
+    }
+    if(window._offlinePoses){
+      loadPoses(window._offlinePoses);
+    } else {
+      fetch('/api/list-poses').then(r=>r.json()).then(d=>{
+        if(d.poses) loadPoses(d.poses);
+      }).catch(e=>{
+        console.warn('Poz yuklenemedi:', e);
+        setStatus('Pozlar yuklenemedi!', 5000);
+      });
+    }
+  },
+  xhr => {
+    if(xhr.total) document.getElementById('load-label').textContent = '%'+Math.round(xhr.loaded/xhr.total*100)+' yuklendi';
+  },
+  err => {
+    console.error('GLB yuklenemedi', err);
+    setLoad(false);
+    setStatus('GLB yuklenemedi!');
+  }
+);
+
+// Idle pose: arms down at sides (not T-pose)
+const IDLE_POSE = {
+  'FK-UpperarmR': {x: 0.15, y: 0.2, z: 0.8},
+  'FK-UpperarmL': {x: 0.15, y: -0.2, z: -0.8},
+};
+let idleApplied = false;
+
+function applyIdlePose(){
+  if(!ready) return;
+  for(const boneId in IDLE_POSE){
+    const bone = bones[boneId];
+    if(!bone || !tLocalQ[boneId]) continue;
+    const r = IDLE_POSE[boneId];
+    const euler = new THREE.Euler(r.x, r.y, r.z, 'XYZ');
+    const q = new THREE.Quaternion().setFromEuler(euler);
+    bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+  }
+  idleApplied = true;
+}
+
+function fixHairGravity(){
+  if(!ready) return;
+  const hairBones = ['FK-Hair_Ponytail1','FK-Hair_Ponytail2','FK-Hair_Ponytail3','FK-Hair_Ponytail4'];
+  hairBones.forEach((name, i) => {
+    const b = bones[name];
+    if(!b) return;
+    const angle = (i+1) * 0.15;
+    const euler = new THREE.Euler(angle, 0, 0, 'XYZ');
+    const q = new THREE.Quaternion().setFromEuler(euler);
+    b.quaternion.copy(tLocalQ[name].clone().multiply(q));
+  });
+}
+
+function addEyePupils(){
+  if(!avatar) return;
+  avatar.traverse(o => {
+    if(!o.isMesh && !o.isSkinnedMesh) return;
+    const n = (o.name||'').toLowerCase();
+    if(n.includes('eye') && !n.includes('brow') && !n.includes('lash') && !n.includes('lid')){
+      if(o.material){
+        const m = o.material.clone ? o.material.clone() : o.material;
+        m.color = new THREE.Color(0x1a1a1a);
+        m.roughness = 0.3;
+        m.metalness = 0.1;
+        // Create pupil sphere
+        const pupil = new THREE.Mesh(
+          new THREE.SphereGeometry(0.004, 16, 16),
+          new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.2})
+        );
+        pupil.position.set(0, 0, 0.008);
+        o.add(pupil);
+      }
+    }
+  });
+}
+
+// Apply a pose with interpolation factor t (0=T-pose, 1=full pose)
+function applyPoseWithT(pose, t){
+  // Reset to idle pose (not T-pose)
+  for(const name in tLocalQ){
+    if(bones[name]) bones[name].quaternion.copy(tLocalQ[name]);
+  }
+  // Apply idle pose as base
+  for(const boneId in IDLE_POSE){
+    const bone = bones[boneId];
+    if(!bone || !tLocalQ[boneId]) continue;
+    const r = IDLE_POSE[boneId];
+    const euler = new THREE.Euler(r.x, r.y, r.z, 'XYZ');
+    const q = new THREE.Quaternion().setFromEuler(euler);
+    bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+  }
+  if(!pose || t <= 0) return;
+  // Apply pose rotations
+  for(const boneId in pose){
+    const bone = bones[boneId];
+    if(!bone || !tLocalQ[boneId]) continue;
+    const r = pose[boneId];
+    const euler = new THREE.Euler(r.x * t, r.y * t, r.z * t, 'XYZ');
+    const q = new THREE.Quaternion().setFromEuler(euler);
+    bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+  }
+}
+
+// ═══════════════════════════════════════════════
+// PLAYBACK
+// ═══════════════════════════════════════════════
+let _playing = false;
+let _stopFlag = false;
+
+// Interpolate between two pose keyframes
+function lerpPosePlayer(poseA, poseB, t){
+  const mixed = {};
+  const allBones = new Set([...Object.keys(poseA||{}), ...Object.keys(poseB||{})]);
+  for(const boneId of allBones){
+    const a = (poseA && poseA[boneId]) || {x:0,y:0,z:0};
+    const b = (poseB && poseB[boneId]) || {x:0,y:0,z:0};
+    mixed[boneId] = {x:a.x+(b.x-a.x)*t, y:a.y+(b.y-a.y)*t, z:a.z+(b.z-a.z)*t};
+  }
+  applyPoseWithT(mixed, 1);
+}
+
+window.playWord = async function(){
+  const word = document.getElementById('glossInput').value.trim().toUpperCase();
+  if(!word || !ready) return;
+
+  let poseData = savedPoses[word];
+  if(!poseData){
+    setStatus('"' + word + '" pozu bulunamadi', 2500);
+    return;
+  }
+
+  // Normalize: old format (single dict) -> array
+  const keyframes = Array.isArray(poseData) ? poseData : [poseData];
+
+  if(_playing){ _stopFlag=true; await new Promise(r=>setTimeout(r,100)); }
+
+  const speed = parseFloat(speedRange.value);
+  const steps = 20;
+  const frameDelay = 20 / speed;
+  const zeroPose = {};
+
+  document.getElementById('st-anim').textContent = word;
+  document.querySelectorAll('.w-btn').forEach(b => b.classList.toggle('active', b.dataset.word===word));
+
+  _playing = true; _stopFlag = false;
+  document.getElementById('stopBtn').style.display = '';
+  showWord(word);
+
+  const totalPhases = keyframes.length + 1; // transitions + hold
+  let phase = 0;
+
+  // Phase 1: T-pose -> first keyframe
+  for(let i=0; i<=steps && !_stopFlag; i++){
+    applyPoseWithT(keyframes[0], i/steps);
+    document.getElementById('progress-bar').style.width = ((i/steps)/(totalPhases+1)*100)+'%';
+    await new Promise(r=>setTimeout(r, frameDelay));
+  }
+  phase++;
+
+  // Keyframe transitions
+  for(let k=0; k<keyframes.length-1 && !_stopFlag; k++){
+    await new Promise(r=>setTimeout(r, 200/speed));
+    for(let i=0; i<=steps && !_stopFlag; i++){
+      lerpPosePlayer(keyframes[k], keyframes[k+1], i/steps);
+      document.getElementById('progress-bar').style.width = (((phase+i/steps)/(totalPhases+1))*100)+'%';
+      await new Promise(r=>setTimeout(r, frameDelay));
+    }
+    phase++;
+  }
+
+  // Hold last keyframe
+  if(!_stopFlag){
+    document.getElementById('progress-bar').style.width = ((phase/(totalPhases+1))*100)+'%';
+    await new Promise(r=>setTimeout(r, 600/speed));
+  }
+
+  // Last keyframe -> T-pose
+  const lastKF = keyframes[keyframes.length-1];
+  for(let i=steps; i>=0 && !_stopFlag; i--){
+    applyPoseWithT(lastKF, i/steps);
+    document.getElementById('progress-bar').style.width = (((phase+(1-i/steps))/(totalPhases+1))*100)+'%';
+    await new Promise(r=>setTimeout(r, frameDelay));
+  }
+
+  applyPoseWithT(null, 0);
+  document.getElementById('progress-bar').style.width = '0%';
+  document.getElementById('stopBtn').style.display = 'none';
+  _playing = false;
+  hideWord();
+  document.querySelectorAll('.w-btn').forEach(b => b.classList.remove('active'));
+};
+
+window.stopPlay = function(){
+  _stopFlag = true;
+  _playing = false;
+  applyPoseWithT({}, 0); // Reset to T-pose
+  document.getElementById('stopBtn').style.display = 'none';
+  document.getElementById('progress-bar').style.width = '0%';
+  hideWord();
+  document.querySelectorAll('.w-btn').forEach(b => b.classList.remove('active'));
+};
+
+// Cümle modu: boşlukla ayrılmış kelimeleri sırayla oynat
+window.playSentence = async function(sentence){
+  const words = sentence.trim().toUpperCase().split(/\s+/);
+  for(const w of words){
+    if(_stopFlag) break;
+    document.getElementById('glossInput').value = w;
+    await window.playWord();
+    if(!_stopFlag) await new Promise(r => setTimeout(r, 300)); // kelimeler arası kısa bekleme
+  }
+};
+
+// Mobile'dan çağrılacak fonksiyon
+window.playSentenceFromMobile = async function(words){
+  for(const w of words){
+    if(_stopFlag) break;
+    document.getElementById('glossInput').value = w;
+    await window.playWord();
+    if(!_stopFlag) await new Promise(r => setTimeout(r, 300));
+  }
+};
+
+// ═══════════════════════════════════════════════
+// WORD LIST
+// ═══════════════════════════════════════════════
+function buildWordList(){
+  const wl = document.getElementById('word-list');
+  wl.innerHTML = '';
+  const words = Object.keys(savedPoses).sort();
+  for(const w of words){
+    const btn = document.createElement('button');
+    btn.className = 'w-btn';
+    btn.dataset.word = w;
+    btn.innerHTML = w + '<span class="tag tag-anim">POZ</span>';
+    btn.onclick = () => {
+      document.getElementById('glossInput').value = w;
+      window.playWord();
+    };
+    wl.appendChild(btn);
+  }
+}
+
+// ═══════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════
+function setLoad(show){
+  document.getElementById('loading').style.display = show?'flex':'none';
+}
+let _stTimer = null;
+function setStatus(msg, dur=0){
+  const el = document.getElementById('status');
+  el.textContent = msg; el.style.opacity = '1';
+  if(_stTimer) clearTimeout(_stTimer);
+  if(dur>0) _stTimer = setTimeout(()=>el.style.opacity='0', dur);
+}
+function showWord(w){
+  const el = document.getElementById('word-display');
+  el.textContent = w; el.style.opacity = '1';
+}
+function hideWord(){
+  document.getElementById('word-display').style.opacity = '0';
+}
+
+// ═══════════════════════════════════════════════
+// NLP — Türkçe Cümle → İşaret Dili Kelimeleri
+// ═══════════════════════════════════════════════
+
+// Türkçe karakter dönüşümü
+function turkishToASCII(s){
+  return s.replace(/ş/gi,'S').replace(/ç/gi,'C').replace(/ğ/gi,'G')
+          .replace(/ü/gi,'U').replace(/ö/gi,'O').replace(/ı/g,'I')
+          .replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ç/g,'C')
+          .replace(/Ğ/g,'G').replace(/Ü/g,'U').replace(/Ö/g,'O');
+}
+
+// Gereksiz kelimeler (işaret dilinde kullanılmayan)
+const STOP_WORDS = new Set([
+  'BIR','BIRI','BIRISI','BIRKAC',
+  'VE','ILE','VEYA','AMA','FAKAT','ANCAK','YANI',
+  'DA','DE','MI','MU','MU','MI',
+  'DIR','TIR','DUR','TUR','TIR','DIR',
+  'KI','ICIN',
+  'BU','SU','O','BUNU','SUNU','ONU','BUNUN','SUNUN','ONUN',
+  'BANA','SANA','ONA','BIZE','SIZE','ONLARA',
+  'BENIM','SENIN','ONUN','BIZIM','SIZIN','ONLARIN',
+  'NE','NASIL','NEREDE','NEREYE','NEREDEN','NEDEN','NIYE','KIM','KIMIN',
+  'COK','AZ','BIRAZ','DAHA','EN',
+  'VAR','YOK','OLAN','OLMAYAN',
+  'BIR','IKI','UC','DORT','BES','ALTI','YEDI','SEKIZ','DOKUZ','ON',
+  'GIBI','KADAR','GORE',
+]);
+
+// Basit Türkçe ek temizleme (suffix stripping)
+function stemTurkish(word){
+  const w = word.toUpperCase();
+  // Sırayla uzun eklerden kısa eklere
+  const suffixes = [
+    // Fiil ekleri
+    'IYORUM','UYORUM','IYORSUN','UYORSUN','IYOR','UYOR','IYOR','UYOR',
+    'ACAGIM','ECEGIM','ACAKSIN','ECEKSIN','ACAK','ECEK',
+    'IYORUZ','UYORUZ','IYORLAR','UYORLAR',
+    'MISTIM','MUSTUM','MISTI','MUSTU',
+    'MISSIN','MUSSUN','MISSA','MUSSA',
+    'MISIN','MUSUN','MIYIM','MUYUM',
+    'MISTI','MUSTU','MISTIK','MUSTUK',
+    'DIM','DUM','DIN','DUN','DI','DU',
+    'TIM','TUM','TIN','TUN','TI','TU',
+    'YIM','YUM','YIN','YUN',
+    'MAK','MEK','MASI','MESI',
+    // İsim ekleri
+    'LARIN','LERIN','LARI','LERI',
+    'LARA','LERE','LARDAN','LERDEN',
+    'IMIZ','UMUZ','INIZ','UNUZ',
+    'NIZI','NUZU','NISI','NUSU',
+    'ININ','UNUN','LARIN','LERIN',
+    'IYLA','UYLA','IYLE','UYLE',
+    'INDA','UNDA','INDE','UNDE',
+    'INDAN','UNDAN','INDEN','UNDEN',
+    'INA','UNA','INE','UNE',
+    'INI','UNU','NIN','NUN',
+    'DAN','DEN','TAN','TEN',
+    'DA','DE','TA','TE',
+    'YA','YE','NA','NE',
+    'NI','NU','IN','UN',
+    'IM','UM','A','E',
+  ];
+
+  for(const s of suffixes){
+    if(w.length > s.length + 2 && w.endsWith(s)){
+      return w.slice(0, -s.length);
+    }
+  }
+  return w;
+}
+
+// Kelime eşleştirme — önce direkt, sonra stem ile
+function findMatchingWord(word){
+  const w = turkishToASCII(word).toUpperCase();
+  // Direkt eşleşme
+  if(savedPoses[w]) return w;
+  // Stem ile eşleşme
+  const stemmed = stemTurkish(w);
+  if(savedPoses[stemmed]) return stemmed;
+  // Poses içinde stem ile eşleşen ara
+  for(const poseWord of Object.keys(savedPoses)){
+    if(stemTurkish(poseWord) === stemmed) return poseWord;
+    if(poseWord.startsWith(stemmed) || stemmed.startsWith(poseWord)) return poseWord;
+  }
+  return null;
+}
+
+// Cümle işle ve oynat
+window.processAndPlay = async function(){
+  const input = document.getElementById('sentenceInput').value.trim();
+  if(!input || !ready) return;
+
+  // Kelimelere ayır ve Türkçe karakterleri dönüştür
+  const rawWords = input.split(/\s+/);
+  const glossWords = [];
+  const notFound = [];
+
+  for(const raw of rawWords){
+    const ascii = turkishToASCII(raw).toUpperCase();
+
+    // Stop word mi?
+    if(STOP_WORDS.has(ascii)) continue;
+
+    // Eşleşme bul
+    const match = findMatchingWord(raw);
+    if(match){
+      // Aynı kelime art arda ekleme
+      if(glossWords.length === 0 || glossWords[glossWords.length-1] !== match){
+        glossWords.push(match);
+      }
+    } else {
+      notFound.push(raw);
+    }
+  }
+
+  if(glossWords.length === 0){
+    setStatus('Eşleşen kelime bulunamadı: ' + rawWords.join(', '), 3000);
+    return;
+  }
+
+  // Bulunamayan kelimeleri göster
+  if(notFound.length > 0){
+    console.warn('Bulunamayan kelimeler:', notFound);
+    setStatus('Eksik: ' + notFound.join(', ') + ' | Oynatılıyor: ' + glossWords.join(' '), 4000);
+  } else {
+    setStatus('Oynatılıyor: ' + glossWords.join(' → '), 3000);
+  }
+
+  // Sırayla oynat
+  for(const w of glossWords){
+    if(_stopFlag) break;
+    document.getElementById('glossInput').value = w;
+    await window.playWord();
+    if(!_stopFlag) await new Promise(r => setTimeout(r, 300));
+  }
+  document.getElementById('glossInput').value = '';
+};
+
+console.info('%c SignBridge — Avatar + NLP','color:#6c63ff;font-size:1rem;font-weight:bold');
+console.info('Türkçe cümle yazın, avatar işaret dilinde göstersin.');
+</script>
+</body>
+</html>
