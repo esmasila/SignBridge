@@ -668,6 +668,333 @@ PRIVACY_CONFIG = {
 
 ---
 
+## 🐳 Docker Deployment
+
+SignBridge Docker ile kolayca deploy edilebilir:
+
+### Quick Start
+
+```bash
+# 1. Docker Compose ile başlatın (GPU desteği ile)
+docker-compose up -d
+
+# 2. API'nin hazır olup olmadığını kontrol edin
+curl http://localhost:5000/health
+
+# 3. Web UI'yi açın
+# Tarayıcınızda: http://localhost:5000
+```
+
+### Manuel Docker Build
+
+```bash
+# Docker image'ı build edin
+docker build -t signbridge:latest .
+
+# Çalıştırın (GPU destekli)
+docker run --gpus all -p 5000:5000 \
+  -v $(pwd)/checkpoints:/app/checkpoints:ro \
+  -v $(pwd)/yolo_runs:/app/yolo_runs:ro \
+  -v $(pwd)/logs:/app/logs \
+  signbridge:latest
+```
+
+### Sistem Gereksinimleri (Docker)
+
+- **Docker**: 20.10+
+- **Docker Compose**: 2.0+
+- **NVIDIA Container Toolkit**: GPU kullanımı için
+  ```bash
+  # Ubuntu/Debian için NVIDIA Container Toolkit kurulumu
+  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
+  curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
+  curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
+    sudo tee /etc/apt/sources.list.d/nvidia-docker.list
+  sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
+  sudo systemctl restart docker
+  ```
+
+### Environment Variables
+
+Docker deployment için önemli environment variable'lar:
+
+```bash
+# .env dosyası oluşturun
+cat > .env << EOF
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=5000
+LOG_LEVEL=INFO
+
+# Model Paths
+CHECKPOINT_DIR=/app/checkpoints
+YOLO_RUNS_DIR=/app/yolo_runs
+
+# CUDA Configuration
+CUDA_VISIBLE_DEVICES=0
+EOF
+```
+
+### Docker Services
+
+`docker-compose.yml` 2 servis içerir:
+
+1. **signbridge**: Ana API servisi (port 5000)
+   - GPU desteği (NVIDIA)
+   - Health check: `/health` endpoint
+   - Auto-restart: unless-stopped
+
+2. **redis**: Cache servisi (port 6379, gelecekteki kullanım için)
+   - Persistent volume
+   - Alpine image (hafif)
+
+### Production Deployment
+
+Production ortamı için öneriler:
+
+```yaml
+# docker-compose.prod.yml
+services:
+  signbridge:
+    environment:
+      - LOG_LEVEL=WARNING
+      - API_WORKERS=4  # Çoklu worker
+    deploy:
+      replicas: 2  # Load balancing için
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          memory: 4G
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+```
+
+### Cloud Deployment
+
+#### AWS EC2 + Docker
+
+```bash
+# 1. GPU destekli EC2 instance başlatın (g4dn.xlarge veya üzeri)
+# 2. NVIDIA drivers ve Docker yükleyin
+# 3. Repository'yi klonlayın
+git clone https://github.com/your-username/sign_bridge.git
+cd sign_bridge
+
+# 4. Model dosyalarını upload edin
+scp -r checkpoints/ ubuntu@ec2-instance:/home/ubuntu/sign_bridge/
+scp -r yolo_runs/ ubuntu@ec2-instance:/home/ubuntu/sign_bridge/
+
+# 5. Docker Compose ile başlatın
+docker-compose up -d
+
+# 6. Nginx reverse proxy (opsiyonel)
+# SSL sertifikası için Let's Encrypt kullanın
+```
+
+#### Google Cloud Run (CPU-only)
+
+```bash
+# 1. Container Registry'ye push edin
+gcloud builds submit --tag gcr.io/PROJECT_ID/signbridge
+
+# 2. Cloud Run'a deploy edin
+gcloud run deploy signbridge \
+  --image gcr.io/PROJECT_ID/signbridge \
+  --platform managed \
+  --region us-central1 \
+  --memory 4Gi \
+  --cpu 2 \
+  --port 5000
+```
+
+### Monitoring
+
+Docker deployment için monitoring:
+
+```bash
+# Container loglarını izleyin
+docker-compose logs -f signbridge
+
+# Kaynak kullanımını kontrol edin
+docker stats signbridge
+
+# Health check
+watch -n 5 'curl -s http://localhost:5000/health | jq'
+```
+
+### Troubleshooting
+
+**GPU algılanmıyor:**
+```bash
+# NVIDIA Container Toolkit kurulu mu kontrol edin
+nvidia-smi
+docker run --rm --gpus all nvidia/cuda:12.1.0-base-ubuntu22.04 nvidia-smi
+```
+
+**Model yüklenmiyor:**
+```bash
+# Volume mount'ları kontrol edin
+docker-compose exec signbridge ls -la /app/checkpoints
+docker-compose exec signbridge ls -la /app/yolo_runs
+```
+
+**API yanıt vermiyor:**
+```bash
+# Container içine girin
+docker-compose exec signbridge bash
+
+# Log dosyalarını kontrol edin
+cat /app/logs/api_service.log
+```
+
+---
+
+## 🏥 Hastane İletişim Modu
+
+SignBridge, işitme engelli bireylerin hastanelerde yaşadığı iletişim sorununu çözmek için özel bir mod içerir.
+
+### Özellikler
+
+- **Metin → TİD Animasyon**: Türkçe metni kelime kelime işaret dili animasyonuna çevirir
+- **Hızlı İfadeler**: Doktor ve hasta için hazır cümleler
+- **İki Mod**:
+  - 👨‍⚕️ **Doktor Modu**: Sağlık personeli için hızlı iletişim
+  - 🤟 **Hasta Modu**: İşitme engelli bireyler için kolay ifadeler
+- **Emoji Animasyonlar**: Her TİD kelimesi için görsel temsil
+- **Canlı Çeviri**: Anlık metin → işaret çevirisi
+
+### Kullanım
+
+#### Web Arayüzü
+
+1. API'yi başlatın:
+```bash
+python -m signbridge.api.service
+```
+
+2. Tarayıcıda açın:
+```
+http://localhost:5000/hospital_mode.html
+```
+
+3. Kullanım:
+   - Doktor/Hasta modunu seçin
+   - Hızlı ifadelerden birini seçin veya kendi mesajınızı yazın
+   - "İşaret Diline Çevir" butonuna tıklayın
+   - Mesajınız kelime kelime animasyonlu olarak gösterilecek
+
+#### API Endpoint
+
+```bash
+# Metin → TİD kelime listesi
+curl -X POST http://localhost:5000/text-to-sign \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Merhaba nasılsınız"}'
+```
+
+**Yanıt:**
+```json
+{
+  "success": true,
+  "original_text": "Merhaba nasılsınız",
+  "tid_words": ["Merhaba", "Nasil"],
+  "unmapped_words": [],
+  "message": "2 kelime başarıyla çevrildi"
+}
+```
+
+### Desteklenen TİD Kelimeleri
+
+Hastane modu 20 temel TİD kelimesini destekler:
+
+| Kategori | Kelimeler |
+|----------|-----------|
+| **Selamlaşma** | Merhaba, Teşekkürler |
+| **Onay/Red** | Evet, Hayır, Tamam, Dur |
+| **Sorular** | Nasıl, Nerede |
+| **Aile** | Anne, Baba, Kardeş, Arkadaş |
+| **Günlük** | Yemek, İçmek, Tuvalet, Ev, Telefon |
+| **Duygular** | İyi, Kötü, Özür Dilemek |
+
+### Hızlı İfadeler
+
+**Doktor Modu:**
+- Merhaba
+- Nasılsınız
+- Nerede ağrı var
+- Tamam anlıyorum
+- Lütfen bekleyin
+- İyi hissediyor musunuz
+- Teşekkür ederim
+- Geçmiş olsun
+
+**Hasta Modu:**
+- Merhaba
+- Yardım eder misiniz
+- Tuvalet nerede
+- Su içmek istiyorum
+- Ağrı var
+- İyi hissediyorum
+- Kötü hissediyorum
+- Teşekkür ederim
+
+### Teknik Detaylar
+
+**Kelime Eşleştirme:**
+- Türkçe normalizasyon (ğ→g, ü→u, vb.)
+- Eş anlamlı kelimeler (selam→Merhaba, sağol→Teşekkürler)
+- Otomatik çoğul/tekil dönüşümü (annem→Anne)
+
+**Animasyon:**
+- Her kelime ~1.5 saniye
+- Kelimeler arası 0.8 saniye bekleme
+- İlerleme çubuğu
+- Aktif/tamamlanmış kelime vurgusu
+
+**API Entegrasyonu:**
+- Endpoint: `POST /text-to-sign`
+- OpenAPI dokümantasyonu: `http://localhost:5000/api/docs#Hospital%20Mode`
+- Swagger UI ile test edilebilir
+
+### Örnek Senaryolar
+
+**Senaryo 1: Doktor Muayenesi**
+```
+Doktor yazar: "Merhaba nasılsınız"
+→ Sistem gösterir: 👋 Merhaba → ❓ Nasıl
+→ Hasta anlayıp tepki verir
+```
+
+**Senaryo 2: Hasta Talebi**
+```
+Hasta seçer: "Tuvalet nerede"
+→ Sistem gösterir: 🚻 Tuvalet → 📍 Nerede
+→ Hemşire anlar ve yönlendirir
+```
+
+**Senaryo 3: Ağrı İletişimi**
+```
+Doktor yazar: "Nerede ağrı var"
+→ Sistem gösterir: 📍 Nerede
+→ Hasta işaretle gösterir
+```
+
+### Gelecek Geliştirmeler
+
+- [ ] Video tabanlı gerçek TİD animasyonları
+- [ ] Daha fazla tıbbi terim (150+ kelime)
+- [ ] Anatomik bölge seçici (vücut haritası)
+- [ ] Sesli komut desteği
+- [ ] Çoklu dil desteği (İngilizce, Almanca)
+- [ ] Offline mod (PWA)
+- [ ] Tablet/mobil optimizasyon
+
+---
+
 ## 🚀 Gelecek Geliştirmeler (Roadmap)
 
 - [ ] AUTSL veri seti entegrasyonu
@@ -675,10 +1002,13 @@ PRIVACY_CONFIG = {
 - [ ] 226 işaret için genişletilmiş sözlük
 - [ ] Cümle tahmin özelliği
 - [ ] Mobil uygulama (iOS/Android)
-- [ ] Web arayüzü
+- [x] Web arayüzü ✅
 - [ ] Çoklu dil desteği
 - [ ] Gerçek zamanlı video kayıt (isteğe bağlı)
 - [ ] Model optimizasyonu (ONNX, TensorRT)
+- [x] Docker deployment ✅
+- [x] REST API ✅
+- [ ] Kubernetes orchestration
 
 ---
 

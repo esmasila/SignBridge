@@ -124,6 +124,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               <button class="cam-btn cam-btn-speak" id="btn-speak" disabled onclick="speakSentence()">Seslendir</button>
             </div>
           </div>
+          <div id="history-label" style="display:none;font-size:.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.05em;margin-top:10px">Önceki Cümleler</div>
           <div id="sentence-history"></div>
         </div>
       </div>
@@ -220,8 +221,17 @@ let fps=0;
 let lastAddedWord='';
 let sameWordCount=0;
 let pastSentences=[];
-const CONF_THRESHOLD=0.75;
-const SAME_WORD_MAX=3; // ignore after this many consecutive same predictions
+// V2 backend ile uyumlu
+const CONF_THRESHOLD=0.82;   // normal esik
+const CONF_FAST_TRACK=0.94;  // fast-track esik
+// Smoothing: require same prediction N times before accepting
+let smoothWord='';
+let smoothCount=0;
+const SMOOTH_NEEDED=4;       // normal: 4 frame
+const SMOOTH_FAST=2;         // fast: 2 frame (takir takir)
+const SAME_WORD_MAX=3;
+let lastWordTime=0;
+const MIN_WORD_GAP=500;      // backend COOLDOWN_SEC=0.5s
 
 async function startCamera(){
   console.log('[CAM] startCamera called');
@@ -257,7 +267,7 @@ async function startCamera(){
   }
 }
 
-const SEND_INTERVAL=100; // ms between frame sends (~10fps)
+const SEND_INTERVAL=80; // ms between frame sends (~12fps)
 let lastSendTime=0;
 let pendingRequest=false;
 
@@ -310,19 +320,37 @@ function captureLoop(){
       document.getElementById('cam-status').classList.remove('detecting');
     }
 
-    // New prediction with confidence filter
-    if(d.prediction_text && d.confidence>CONF_THRESHOLD){
-      addWord(d.prediction_text,d.confidence);
+    // New prediction with confidence filter + smoothing (ONLY when hands detected)
+    if(d.hands_detected && d.prediction_text && d.confidence>CONF_THRESHOLD){
+      if(d.prediction_text === smoothWord){
+        smoothCount++;
+      } else {
+        smoothWord = d.prediction_text;
+        smoothCount = 1;
+      }
+      // V2 fast-track: %94+ guvende 2 frame yeter, normalde 4 frame
+      const needed = (d.confidence >= CONF_FAST_TRACK) ? SMOOTH_FAST : SMOOTH_NEEDED;
+      if(smoothCount >= needed){
+        addWord(d.prediction_text,d.confidence);
+        smoothCount = 0;
+      }
+    } else if(!d.hands_detected){
+      // Reset smoothing when hands disappear
+      smoothWord='';
+      smoothCount=0;
     }
 
     // Sentence completion: 2 seconds without hands
     if(sentenceWords.length>0 && !sentenceComplete && !d.hands_detected && Date.now()-lastHandTime>2000){
       completeSentence();
+      // Auto archive after 1.5 seconds
+      setTimeout(()=>{
+        if(sentenceComplete) archiveSentence();
+      }, 1500);
     }
 
-    // New sentence starts when hands come back after completion
-    if(sentenceComplete && d.hands_detected){
-      // Archive current sentence and start fresh
+    // If sentence is complete and new word comes, archive first then add
+    if(sentenceComplete && d.hands_detected && d.prediction_text && d.confidence>CONF_THRESHOLD){
       archiveSentence();
     }
 
@@ -337,19 +365,31 @@ function captureLoop(){
 }
 
 function addWord(word,conf){
-  if(sentenceComplete) return; // sentence done, wait for archive
+  // If sentence was completed, archive it and start fresh
+  if(sentenceComplete){
+    archiveSentence();
+  }
+  // Minimum time gap between different words (prevents transition noise)
+  const now=Date.now();
+  if(word!==lastAddedWord && now-lastWordTime<MIN_WORD_GAP) return;
   // Track same word predictions
   if(word===lastAddedWord){
     sameWordCount++;
-    if(sameWordCount>SAME_WORD_MAX) return; // too many same predictions, skip
+    if(sameWordCount>SAME_WORD_MAX) return;
   } else {
     sameWordCount=0;
   }
   lastAddedWord=word;
+  lastWordTime=now;
   // Don't add same word twice in a row to sentence
   if(sentenceWords.length>0&&sentenceWords[sentenceWords.length-1]===word)return;
+  // Don't add same word more than twice in entire sentence
+  const wordCount = sentenceWords.filter(w=>w===word).length;
+  if(wordCount >= 2) return;
   sentenceWords.push(word);
   renderWords();
+  // Show live Turkish translation as words are added
+  document.getElementById('sentence-turkish').textContent = glossToSentence(sentenceWords).replace(/\.$/, '...');
   document.getElementById('btn-speak').disabled=false;
 }
 
@@ -359,17 +399,60 @@ function renderWords(){
   sentenceWords.forEach((w,i)=>{
     const chip=document.createElement('span');
     chip.className='word-chip'+(i===sentenceWords.length-1?' latest':'');
-    chip.textContent=w;
+    chip.textContent=glossToTR[w]||w;
     container.appendChild(chip);
   });
 }
 
+// Gloss -> Turkish display
+const glossToTR={
+  'ABI':'Abi','ABLA':'Abla','AFERIN':'Aferin','AGUSTOS':'Ağustos',
+  'AKILLI':'Akıllı','AKRABA':'Akraba','AKSAM':'Akşam','ALERJI':'Alerji',
+  'ALLAH':'Allah','ALTI':'Altı','AMCA':'Amca','AMIN':'Amin','ANNE':'Anne',
+  'APTAL':'Aptal','ARALIK':'Aralık','ARAP':'Arap','ARKADAS':'Arkadaş',
+  'ASK':'Aşk','ATATURK':'Atatürk','AYIP':'Ayıp','AYRAN':'Ayran',
+  'BABA':'Baba','BAKLAVA':'Baklava','BARIS':'Barış','BEN':'Ben',
+  'BES':'Beş','BILGISAYAR':'Bilgisayar','BIR':'Bir','BOS VERMEK':'Boş vermek',
+  'BU KADAR':'Bu kadar','BUGUN':'Bugün','BUYUK':'Büyük',
+  'CARSAMBA':'Çarşamba','CAY':'Çay','CD':'CD','CEP TELEFONU':'Cep telefonu',
+  'CEZA':'Ceza','CIKOLATA':'Çikolata','CUMA':'Cuma','CUMARTESI':'Cumartesi',
+  'CUNKU':'Çünkü','DIKKAT':'Dikkat','DOKTOR':'Doktor','DOKUZ':'Dokuz',
+  'DORT':'Dört','DOYMAK':'Doymak','DUN':'Dün','EKIM':'Ekim','EKMEK':'Ekmek',
+  'ELHAMDULILLAH':'Elhamdülillah','ERIK':'Erik','EV':'Ev','EVET':'Evet',
+  'EVLENMEK':'Evlenmek','EYLUL':'Eylül','FINAL':'Final','FUTBOL':'Futbol',
+  'GUN':'Gün','HANGI':'Hangi','HAZIRAN':'Haziran','HEMSIRE':'Hemşire',
+  'HENTBOL':'Hentbol','HOSCA KAL':'Hoşça kal','IKI':'İki','IYI':'İyi',
+  'KAHVE':'Kahve','KASIM':'Kasım','KIS':'Kış','KOTU':'Kötü','KUCUK':'Küçük',
+  'MART':'Mart','MAYIS':'Mayıs','MERHABA':'Merhaba','NISAN':'Nisan',
+  'OCAK':'Ocak','OGRETMEN':'Öğretmen','OKUL':'Okul','ORUC':'Oruç',
+  'PAZAR':'Pazar','PAZARTESI':'Pazartesi','PERSEMBE':'Perşembe',
+  'SABAH':'Sabah','SALI':'Salı','SEKIZ':'Sekiz','SEN':'Sen','SIFIR':'Sıfır',
+  'SORU':'?','SU':'Su','SUBAT':'Şubat','TEMMUZ':'Temmuz','TESEKKUR':'Teşekkür',
+  'TUVALET':'Tuvalet','TV':'TV','UC':'Üç','VOLEYBOL':'Voleybol',
+  'YARDIM':'Yardım','YATMAK':'Yatmak','YEDI':'Yedi','YEMEK':'Yemek',
+  'YETER':'Yeter','ZENGIN':'Zengin'
+};
+
+function glossToSentence(words){
+  const parts = words.map(w => glossToTR[w] || w.charAt(0)+w.slice(1).toLowerCase());
+  let sentence = parts.join(' ');
+  // Clean up: "kelime ?" -> "kelime?"
+  sentence = sentence.replace(/\s+\?/g, '?');
+  // Capitalize first letter
+  sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+  // Add period if no punctuation at end
+  if(!/[.!?]$/.test(sentence)) sentence += '.';
+  return sentence;
+}
+
 function completeSentence(){
   sentenceComplete=true;
-  const turkish=sentenceWords.map(w=>w.charAt(0)+w.slice(1).toLowerCase()).join(' ');
+  const turkish = glossToSentence(sentenceWords);
   document.getElementById('sentence-turkish').textContent=turkish;
   // Visual feedback
   document.getElementById('sentence-words').classList.add('complete');
+  // Auto speak the completed sentence
+  speakSentence();
 }
 
 function archiveSentence(){
@@ -391,8 +474,10 @@ function archiveSentence(){
 
 function renderHistory(){
   const hist=document.getElementById('sentence-history');
+  const label=document.getElementById('history-label');
   if(!hist)return;
   hist.innerHTML='';
+  if(label) label.style.display = pastSentences.length > 0 ? 'block' : 'none';
   pastSentences.slice(0,10).forEach(s=>{
     const div=document.createElement('div');
     div.className='history-item';
@@ -415,19 +500,27 @@ function clearSentence(){
 
 function speakSentence(){
   if(sentenceWords.length===0)return;
-  const text=sentenceWords.join(' ');
-  fetch('/tts',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({text:text,lang:'tr'})
-  })
-  .then(r=>r.blob())
-  .then(blob=>{
-    const url=URL.createObjectURL(blob);
-    const a=new Audio(url);
-    a.play();
-  })
-  .catch(e=>console.error('TTS error:',e));
+  const text = document.getElementById('sentence-turkish').textContent || glossToSentence(sentenceWords);
+  if(!text || text.trim().length===0) return;
+  if(!('speechSynthesis' in window)){
+    alert('Bu tarayıcı ses sentezini desteklemiyor.');
+    return;
+  }
+  // Cancel any ongoing speech
+  speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'tr-TR';
+  utt.rate = 0.9;
+  // Try to find a Turkish voice
+  const voices = speechSynthesis.getVoices();
+  const trVoice = voices.find(v => v.lang.startsWith('tr'));
+  if(trVoice) utt.voice = trVoice;
+  speechSynthesis.speak(utt);
+}
+// Pre-load voices (some browsers need this)
+if('speechSynthesis' in window){
+  speechSynthesis.getVoices();
+  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
 }
 
 // Start camera when page loads (camera tab is default)

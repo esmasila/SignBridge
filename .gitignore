@@ -73,3 +73,39 @@ desktop.ini
 # Test dosyaları
 test_images/
 test_videos/
+node_modules
+
+# Yedek/build artifact'leri
+checkpoints/*.pt
+checkpoints/*.onnx
+checkpoints/training_history.png
+data_aug/
+data_aug_v2/
+*.log
+debug_incoming/
+debug_overlay/
+
+# Mobile (ayri repo)
+sign_bridge_mobile/
+.claude/
+*.zip
+
+# Large data/build
+data/
+data_aug/
+data_aug_v2/
+checkpoints/*.pt
+checkpoints/*.onnx
+checkpoints/*.png
+*.npy
+*.zip
+*.apk
+*.glb
+__pycache__/
+.venv/
+.claude/
+*.log
+debug_incoming/
+debug_overlay/
+sign_bridge_mobile/
+node_modules/

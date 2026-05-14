@@ -6,47 +6,296 @@
 <title>Step 4 — Blender Animasyon Oynatıcı</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',sans-serif;background:#08090e;color:#e2e8f0;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+body{
+  font-family:'Inter','Segoe UI',sans-serif;
+  background:#08090e;color:#e2e8f0;
+  display:flex;flex-direction:column;height:100vh;overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+  position:relative;
+}
+/* Subtle glow orbs in background for depth */
+body::before{
+  content:"";position:fixed;width:480px;height:480px;border-radius:50%;
+  background:radial-gradient(circle,rgba(108,99,255,0.18),transparent 70%);
+  top:-180px;left:-120px;z-index:0;pointer-events:none;
+  filter:blur(40px);
+}
+body::after{
+  content:"";position:fixed;width:420px;height:420px;border-radius:50%;
+  background:radial-gradient(circle,rgba(34,211,238,0.12),transparent 70%);
+  bottom:-150px;right:-100px;z-index:0;pointer-events:none;
+  filter:blur(40px);
+}
+#topbar,#main{position:relative;z-index:1}
 
-#topbar{display:flex;align-items:center;gap:10px;padding:0 16px;height:52px;background:#0f111a;border-bottom:1px solid #1f2535;flex-shrink:0}
-.logo{font-weight:700;font-size:.95rem;color:#a78bfa}
-.badge{padding:2px 8px;border-radius:10px;font-size:.68rem;font-weight:700;background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff}
-#glossInput{flex:1;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none}
-#glossInput:focus{border-color:#6c63ff}
-.btn{padding:8px 15px;border-radius:8px;border:none;cursor:pointer;font-weight:600;font-size:.82rem;transition:all .15s}
+#topbar{
+  display:flex;align-items:center;gap:12px;
+  padding:0 18px;height:58px;
+  background:rgba(15,17,26,0.7);
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  flex-shrink:0;
+}
+.logo{
+  font-weight:800;font-size:1rem;letter-spacing:-0.02em;
+  background:linear-gradient(135deg,#a78bfa,#22d3ee);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.badge{
+  padding:3px 10px;border-radius:999px;font-size:.66rem;font-weight:800;
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;
+  box-shadow:0 4px 14px rgba(108,99,255,0.4);letter-spacing:0.02em;
+}
+#glossInput,#sentenceInput{
+  padding:9px 14px;border-radius:10px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04);
+  color:#e2e8f0;font-size:.88rem;outline:none;
+  transition:all .2s;
+}
+#glossInput::placeholder,#sentenceInput::placeholder{color:#64748b}
+#glossInput:focus,#sentenceInput:focus{
+  border-color:rgba(108,99,255,0.5);
+  background:rgba(108,99,255,0.06);
+  box-shadow:0 0 0 3px rgba(108,99,255,0.12);
+}
+.btn{
+  padding:9px 16px;border-radius:10px;border:none;cursor:pointer;
+  font-weight:700;font-size:.84rem;transition:all .18s;
+}
 .btn:active{transform:scale(.96)}
-.btn-accent{background:#6c63ff;color:#fff}
-.btn-accent:hover{background:#5a52e0}
-.btn-gray{background:#161924;color:#64748b;border:1px solid #1f2535}
-.speed-wrap{display:flex;align-items:center;gap:5px;font-size:.75rem;color:#64748b}
-#speedRange{width:68px;height:4px;-webkit-appearance:none;background:#1f2535;border-radius:2px;outline:none;cursor:pointer}
-#speedRange::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:#6c63ff}
-#speedVal{font-weight:600;color:#a78bfa;min-width:30px}
+.btn-accent{
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);color:#fff;
+  box-shadow:0 6px 18px rgba(108,99,255,0.4),inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-accent:hover{transform:translateY(-1px);box-shadow:0 10px 26px rgba(108,99,255,0.55)}
+.btn-gray{
+  background:rgba(255,255,255,0.05);color:#94a3b8;
+  border:1px solid rgba(255,255,255,0.08);
+}
+.btn-gray:hover{background:rgba(255,255,255,0.09);color:#e2e8f0;border-color:rgba(255,255,255,0.14)}
+.speed-wrap{display:flex;align-items:center;gap:8px;font-size:.78rem;color:#94a3b8;font-weight:600}
+#speedRange{
+  width:90px;height:5px;-webkit-appearance:none;appearance:none;
+  background:linear-gradient(90deg,#6c63ff,#22d3ee);
+  border-radius:999px;outline:none;cursor:pointer;
+}
+#speedRange::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;
+  width:16px;height:16px;border-radius:50%;
+  background:#fff;border:2px solid #6c63ff;
+  box-shadow:0 0 12px rgba(108,99,255,0.6);
+  cursor:pointer;transition:transform .15s;
+}
+#speedRange::-webkit-slider-thumb:hover{transform:scale(1.2)}
+#speedVal{
+  font-weight:800;color:#a78bfa;min-width:36px;
+  font-variant-numeric:tabular-nums;
+}
+
+/* ═══════════ Hızlı Cümleler Barı ═══════════ */
+#quick-bar{
+  display:flex;align-items:center;gap:14px;
+  padding:10px 22px;
+  background:rgba(15,17,26,0.55);
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  flex-shrink:0;
+  position:relative;z-index:1;
+}
+.qp-label{
+  display:flex;align-items:center;gap:6px;
+  font-size:.7rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;
+  background:linear-gradient(135deg,#a78bfa,#22d3ee);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  flex-shrink:0;
+}
+.qp-label svg{width:14px;height:14px;color:#a78bfa}
+.qp-chips{
+  display:flex;gap:8px;
+  overflow-x:auto;
+  padding-bottom:2px;
+  scrollbar-width:thin;
+  scroll-behavior:smooth;
+}
+.qp-chips::-webkit-scrollbar{height:4px}
+.qp-chips::-webkit-scrollbar-track{background:transparent}
+.qp-chips::-webkit-scrollbar-thumb{background:rgba(108,99,255,0.3);border-radius:99px}
+.qp-chip{
+  flex-shrink:0;
+  padding:7px 14px;
+  border-radius:999px;
+  border:1px solid rgba(108,99,255,0.22);
+  background:rgba(108,99,255,0.08);
+  color:#c4b5fd;
+  font-size:.78rem;font-weight:600;
+  cursor:pointer;
+  font-family:inherit;
+  white-space:nowrap;
+  transition:all .2s;
+}
+.qp-chip:hover{
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  border-color:transparent;
+  color:#fff;
+  transform:translateY(-1px);
+  box-shadow:0 8px 22px rgba(108,99,255,0.45);
+}
+.qp-chip:active{transform:scale(.96)}
 
 #main{display:flex;flex:1;overflow:hidden}
 #canvas-col{flex:1;position:relative;overflow:hidden}
 canvas{display:block}
 
-#loading{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#08090e;z-index:50}
-.spinner{width:36px;height:36px;border:3px solid #1f2535;border-top-color:#6c63ff;border-radius:50%;animation:spin .7s linear infinite}
+#loading{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  background:#08090e;z-index:50;
+}
+.spinner{
+  width:42px;height:42px;
+  border:3px solid rgba(108,99,255,0.15);
+  border-top-color:#a78bfa;
+  border-radius:50%;animation:spin .7s linear infinite;
+  box-shadow:0 0 30px rgba(108,99,255,0.3);
+}
 @keyframes spin{to{transform:rotate(360deg)}}
-.load-label{font-size:.82rem;color:#64748b}
+.load-label{font-size:.85rem;color:#94a3b8;font-weight:500}
 
-#status{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);padding:5px 14px;border-radius:14px;font-size:.75rem;font-weight:600;background:rgba(108,99,255,.75);color:#fff;z-index:10;backdrop-filter:blur(6px);pointer-events:none;transition:opacity .3s;opacity:0}
-#word-display{position:absolute;bottom:50px;left:50%;transform:translateX(-50%);font-size:1.4rem;font-weight:700;color:#fff;text-shadow:0 0 18px rgba(108,99,255,.8);z-index:10;pointer-events:none;opacity:0;transition:opacity .3s}
-#progress-bar{position:absolute;bottom:0;left:0;height:3px;background:#6c63ff;width:0%;z-index:10}
+#status{
+  position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  padding:7px 16px;border-radius:999px;font-size:.78rem;font-weight:700;
+  background:rgba(108,99,255,0.85);backdrop-filter:blur(14px);
+  color:#fff;
+  border:1px solid rgba(255,255,255,0.12);
+  box-shadow:0 8px 26px rgba(108,99,255,0.4);
+  z-index:10;pointer-events:none;transition:opacity .3s;opacity:0;
+}
+#word-display{
+  position:absolute;bottom:60px;left:50%;transform:translateX(-50%);
+  font-size:1.6rem;font-weight:900;
+  background:linear-gradient(135deg,#fff,#c4b5fd);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-0.02em;
+  text-shadow:0 0 30px rgba(167,139,250,0.6);
+  filter:drop-shadow(0 4px 18px rgba(108,99,255,0.7));
+  z-index:10;pointer-events:none;opacity:0;transition:opacity .3s;
+}
+#progress-bar{
+  position:absolute;bottom:0;left:0;height:3px;
+  background:linear-gradient(90deg,#6c63ff,#22d3ee);
+  width:0%;z-index:10;
+  box-shadow:0 0 16px rgba(108,99,255,0.7);
+}
 
-#sidebar{width:200px;background:#0f111a;border-left:1px solid #1f2535;display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
-#sidebar-header{padding:10px 13px 7px;border-bottom:1px solid #1f2535;font-size:.72rem;font-weight:700;letter-spacing:.05em;color:#a78bfa;text-transform:uppercase}
-#word-list{flex:1;overflow-y:auto;padding:6px}
-.w-btn{display:block;width:100%;padding:7px 10px;margin-bottom:3px;border-radius:5px;border:1px solid transparent;background:transparent;color:#64748b;cursor:pointer;font-size:.78rem;text-align:left;transition:all .12s}
-.w-btn:hover{background:#161924;color:#e2e8f0;border-color:#1f2535}
-.w-btn.active{background:#6c63ff22;color:#a78bfa;border-color:#6c63ff55;font-weight:600}
-.w-btn .tag{font-size:.6rem;padding:1px 5px;border-radius:4px;margin-left:5px;font-weight:700}
-.tag-anim{background:#22c55e33;color:#22c55e}
-.tag-json{background:#f59e0b33;color:#f59e0b}
+#sidebar{
+  width:240px;
+  background:rgba(15,17,26,0.7);
+  border-left:1px solid rgba(255,255,255,0.06);
+  backdrop-filter:blur(24px) saturate(180%);
+  -webkit-backdrop-filter:blur(24px) saturate(180%);
+  display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;
+}
+#sidebar-header{
+  padding:14px 14px 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid rgba(255,255,255,0.06);
+  font-size:.72rem;font-weight:800;letter-spacing:.08em;
+  text-transform:uppercase;
+}
+#sidebar-header span:first-child{
+  background:linear-gradient(135deg,#a78bfa,#22d3ee);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+.sb-count{
+  padding:3px 10px;border-radius:999px;
+  background:linear-gradient(135deg,rgba(108,99,255,0.18),rgba(34,211,238,0.12));
+  border:1px solid rgba(108,99,255,0.25);
+  color:#c4b5fd;font-size:0.66rem;font-weight:800;
+  font-variant-numeric:tabular-nums;letter-spacing:0;
+  -webkit-text-fill-color:#c4b5fd;
+}
 
-#info-bar{padding:8px 13px;border-top:1px solid #1f2535;font-size:.7rem;color:#64748b;display:flex;flex-direction:column;gap:2px}
+/* Search */
+.sb-search-wrap{position:relative;padding:10px 12px 8px}
+.sb-search-wrap svg{
+  position:absolute;left:23px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;color:#64748b;pointer-events:none;
+}
+#sbSearch{
+  width:100%;padding:8px 10px 8px 32px;
+  border-radius:9px;
+  border:1px solid rgba(255,255,255,0.08);
+  background:rgba(255,255,255,0.04);
+  color:#e2e8f0;font-size:.8rem;font-weight:500;outline:none;
+  transition:all .2s;font-family:inherit;
+}
+#sbSearch::placeholder{color:#64748b}
+#sbSearch:focus{
+  border-color:rgba(108,99,255,0.5);
+  background:rgba(108,99,255,0.06);
+  box-shadow:0 0 0 3px rgba(108,99,255,0.12);
+}
+
+/* Word grid: 2 columns, compact chips */
+#word-list{
+  flex:1;overflow-y:auto;padding:6px 10px 10px;
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:5px;
+  align-content:flex-start;
+}
+#word-list::-webkit-scrollbar{width:5px}
+#word-list::-webkit-scrollbar-track{background:transparent}
+#word-list::-webkit-scrollbar-thumb{background:rgba(108,99,255,0.3);border-radius:99px}
+#word-list::-webkit-scrollbar-thumb:hover{background:rgba(108,99,255,0.5)}
+
+.w-btn{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;padding:8px 6px;
+  border-radius:8px;border:1px solid rgba(255,255,255,0.05);
+  background:rgba(255,255,255,0.03);
+  color:#94a3b8;cursor:pointer;
+  font-size:.7rem;font-weight:700;
+  text-align:center;font-family:inherit;
+  transition:all .18s;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  position:relative;
+}
+.w-btn:hover{
+  background:rgba(108,99,255,0.10);
+  border-color:rgba(108,99,255,0.3);
+  color:#e2e8f0;
+  transform:translateY(-1px);
+  box-shadow:0 4px 12px rgba(108,99,255,0.18);
+}
+.w-btn.active{
+  background:linear-gradient(135deg,#6c63ff,#a78bfa);
+  border-color:transparent;color:#fff;
+  box-shadow:0 6px 18px rgba(108,99,255,0.45),inset 0 1px 0 rgba(255,255,255,0.18);
+  transform:scale(1.04);
+}
+.w-btn .tag{display:none}
+.tag-anim,.tag-json{display:none}
+
+.sb-empty{
+  display:none;
+  text-align:center;padding:18px 12px;
+  color:#475569;font-size:0.78rem;font-style:italic;font-weight:500;
+}
+.sb-empty.show{display:block}
+
+#info-bar{
+  padding:10px 16px;
+  border-top:1px solid rgba(255,255,255,0.06);
+  font-size:.7rem;color:#64748b;font-weight:600;
+  display:flex;flex-direction:column;gap:3px;
+  background:rgba(0,0,0,0.2);
+}
+#info-bar span span{color:#a78bfa;font-weight:800;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
@@ -54,14 +303,35 @@ canvas{display:block}
 <div id="topbar">
   <span class="logo">SignBridge</span>
   <span class="badge">Avatar</span>
-  <input id="sentenceInput" placeholder="Türkçe cümle yaz... (örn: merhaba baba nasılsın)" onkeydown="if(event.key==='Enter')processAndPlay()" style="flex:2;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none">
+  <input id="sentenceInput" placeholder="Türkçe cümle yaz... (örn: merhaba baba nasılsın)" onkeydown="if(event.key==='Enter')processAndPlay()" style="flex:2">
+  <button class="btn btn-gray" id="micBtn" onclick="toggleMic()" title="Sesle yaz" style="padding:8px 12px">🎙️</button>
   <button class="btn btn-accent" onclick="processAndPlay()">Cümle Oynat</button>
-  <input id="glossInput" placeholder="Tek kelime..." style="flex:1;padding:8px 13px;border-radius:8px;border:1px solid #1f2535;background:#08090e;color:#e2e8f0;font-size:.88rem;outline:none" onkeydown="if(event.key==='Enter')playWord()">
+  <input id="glossInput" placeholder="Tek kelime..." style="flex:1" onkeydown="if(event.key==='Enter')playWord()">
   <button class="btn btn-gray" onclick="playWord()">Kelime</button>
   <button class="btn btn-gray" id="stopBtn" onclick="stopPlay()" style="display:none">Dur</button>
   <div class="speed-wrap">
     Hiz <input type="range" id="speedRange" min="0.3" max="2" step="0.1" value="1">
     <span id="speedVal">1.0x</span>
+  </div>
+</div>
+
+<!-- ═══════════ HIZLI CÜMLELER BARI (Demo için) ═══════════ -->
+<div id="quick-bar">
+  <span class="qp-label">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+    Hızlı Cümleler
+  </span>
+  <div class="qp-chips">
+    <button class="qp-chip" onclick="quickPhrase('Merhaba nasılsın')">1. Merhaba nasılsın?</button>
+    <button class="qp-chip" onclick="quickPhrase('İyiyim sen ne yapıyorsun')">2. İyiyim sen ne yapıyorsun?</button>
+    <button class="qp-chip" onclick="quickPhrase('Ben çalışıyorum çok yoruldum')">3. Ben çalışıyorum, çok yoruldum</button>
+    <button class="qp-chip" onclick="quickPhrase('Saat kaçta bitiyor')">4. Saat kaçta bitiyor?</button>
+    <button class="qp-chip" onclick="quickPhrase('Akşam beşten sonra boşum')">5. Akşam beşten sonra boşum</button>
+    <button class="qp-chip" onclick="quickPhrase('Beraber kahve içelim mi')">6. Beraber kahve içelim mi?</button>
+    <button class="qp-chip" onclick="quickPhrase('Tamam nerede buluşalım')">7. Tamam nerede buluşalım?</button>
+    <button class="qp-chip" onclick="quickPhrase('Parkın yanındaki kafede')">8. Parkın yanındaki kafede</button>
+    <button class="qp-chip" onclick="quickPhrase('Tamam görüşürüz')">9. Tamam görüşürüz</button>
+    <button class="qp-chip" onclick="quickPhrase('Kendine iyi bak')">10. Kendine iyi bak</button>
   </div>
 </div>
 
@@ -73,14 +343,109 @@ canvas{display:block}
     <div id="progress-bar"></div>
   </div>
   <div id="sidebar">
-    <div id="sidebar-header">Kelimeler</div>
+    <div id="sidebar-header">
+      <span>Kelimeler</span>
+      <span class="sb-count" id="sbCount">0</span>
+    </div>
+    <div class="sb-search-wrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input id="sbSearch" placeholder="Ara..." oninput="filterSb()">
+    </div>
     <div id="word-list"></div>
+    <div id="sb-empty" class="sb-empty">Eşleşme yok</div>
     <div id="info-bar">
       <span>Anim: <span id="st-anim">—</span></span>
       <span>Toplam: <span id="st-count">—</span></span>
     </div>
   </div>
 </div>
+
+<!-- Mobile word drawer (slide from right) -->
+<button id="mobile-words-btn" title="Kelimeler">📋</button>
+<div id="mobile-words-panel">
+  <div id="mobile-words-header">
+    <span id="mobile-words-title">Kelimeler</span>
+    <button id="mobile-words-close">✕</button>
+  </div>
+  <input type="text" id="mobile-words-search" placeholder="Kelime ara...">
+  <div id="mobile-words-list"></div>
+  <div id="mobile-request-section">
+    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.5);margin-bottom:6px">Kelime İsteği</div>
+    <div style="display:flex;gap:6px">
+      <input type="text" id="mobile-request-input" placeholder="İstediğiniz kelimeyi yazın...">
+      <button id="mobile-request-send">Gönder</button>
+    </div>
+    <div id="mobile-request-msg" style="font-size:11px;color:#10B981;margin-top:4px;display:none"></div>
+  </div>
+</div>
+<div id="mobile-words-overlay"></div>
+
+<!-- Mobile input bar -->
+<div id="mobile-input-bar">
+  <div id="mobile-speed-row">
+    <span style="font-size:12px;color:rgba(255,255,255,0.5);font-weight:600">Hız</span>
+    <input type="range" id="mobile-speed" min="0.3" max="2" step="0.1" value="1">
+    <span id="mobile-speed-val" style="font-size:12px;color:#a78bfa;font-weight:700;min-width:30px">1.0x</span>
+  </div>
+  <div id="mobile-input-row">
+    <input type="text" id="mobile-gloss" placeholder="Cümle yazın... (ör: merhaba baba)">
+    <button id="mobile-send">Çevir</button>
+    <button id="mobile-stop" style="display:none">Dur</button>
+  </div>
+</div>
+<style>
+#mobile-input-bar{display:none;position:fixed;bottom:0;left:0;right:0;padding:8px 12px;
+  background:rgba(20,22,42,0.95);backdrop-filter:blur(10px);
+  flex-direction:column;gap:6px;z-index:100;border-top:1px solid rgba(255,255,255,0.1)}
+#mobile-speed-row{display:flex;align-items:center;gap:8px}
+#mobile-speed{flex:1;height:4px;-webkit-appearance:none;background:rgba(255,255,255,0.15);border-radius:2px;outline:none}
+#mobile-speed::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:#5B4CDB}
+#mobile-input-row{display:flex;gap:8px;align-items:center}
+#mobile-gloss{flex:1;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.08);color:#fff;font-size:15px;outline:none}
+#mobile-gloss::placeholder{color:rgba(255,255,255,0.4)}
+#mobile-gloss:focus{border-color:rgba(108,99,255,0.6)}
+
+/* Word drawer */
+#mobile-words-btn{display:none;position:fixed;top:14px;right:14px;z-index:100;
+  width:42px;height:42px;border-radius:12px;border:none;background:rgba(91,76,219,0.9);
+  color:#fff;font-size:18px;cursor:pointer;backdrop-filter:blur(6px);
+  box-shadow:0 2px 10px rgba(0,0,0,0.3)}
+#mobile-words-overlay{display:none;position:fixed;top:0;left:0;right:0;bottom:0;
+  background:rgba(0,0,0,0.5);z-index:200}
+#mobile-words-panel{display:none;position:fixed;top:0;right:0;bottom:0;width:260px;
+  background:rgba(20,22,42,0.98);backdrop-filter:blur(12px);z-index:201;
+  flex-direction:column;border-left:1px solid rgba(255,255,255,0.1);
+  transform:translateX(100%);transition:transform .3s ease}
+#mobile-words-panel.open{transform:translateX(0)}
+#mobile-words-header{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.1)}
+#mobile-words-title{color:#fff;font-size:16px;font-weight:700}
+#mobile-words-close{background:none;border:none;color:rgba(255,255,255,0.5);
+  font-size:20px;cursor:pointer;padding:4px 8px}
+#mobile-words-search{margin:10px 12px;padding:8px 12px;border-radius:10px;
+  border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.08);
+  color:#fff;font-size:13px;outline:none}
+#mobile-words-search::placeholder{color:rgba(255,255,255,0.35)}
+#mobile-words-list{flex:1;overflow-y:auto;padding:8px 12px;display:flex;
+  flex-wrap:wrap;gap:6px;align-content:flex-start}
+.mw-chip{padding:6px 12px;border-radius:8px;background:rgba(91,76,219,0.15);
+  color:#a78bfa;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(91,76,219,0.2);
+  transition:all .2s}
+.mw-chip:active{background:rgba(91,76,219,0.4)}
+#mobile-request-section{padding:12px;border-top:1px solid rgba(255,255,255,0.1)}
+#mobile-request-input{flex:1;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);
+  background:rgba(255,255,255,0.08);color:#fff;font-size:12px;outline:none}
+#mobile-request-input::placeholder{color:rgba(255,255,255,0.35)}
+#mobile-request-send{padding:8px 14px;border-radius:8px;border:none;background:#10B981;
+  color:#fff;font-size:12px;font-weight:600;cursor:pointer}
+#mobile-send,#mobile-stop{padding:10px 18px;border-radius:12px;border:none;font-size:14px;
+  font-weight:600;cursor:pointer;white-space:nowrap}
+#mobile-send{background:#5B4CDB;color:#fff}
+#mobile-stop{background:#EF4444;color:#fff}
+</style>
 
 <script type="importmap">
 { "imports": {
@@ -121,10 +486,18 @@ else{g.addColorStop(0,'#1a1c2e');g.addColorStop(1,'#08090e')}
 bgX.fillStyle=g; bgX.fillRect(0,0,4,256);
 scene.background = new THREE.CanvasTexture(bgC);
 
+const hideControls = params.has('hideControls');
 if(isMobile){
   document.getElementById('topbar').style.display='none';
   document.getElementById('sidebar').style.display='none';
   document.getElementById('word-display').style.display='none';
+  // Mobilde web'in ust hizli cumleler barini da gizle (mobil kendi alt barini kullanir)
+  const qb = document.getElementById('quick-bar');
+  if(qb) qb.style.display='none';
+  if(!hideControls){
+    document.getElementById('mobile-input-bar').style.display='flex';
+    document.getElementById('mobile-words-btn').style.display='block';
+  }
 }
 // Expose speed control for mobile WebView
 window.setSpeed = function(val){ document.getElementById('speedRange').value = val; };
@@ -170,6 +543,15 @@ const clock = new THREE.Clock();
 (function loop(){
   requestAnimationFrame(loop);
   if(mixer) mixer.update(clock.getDelta());
+  // Update eye pupils to follow eye bones
+  if(window._eyePupils){
+    for(const ep of window._eyePupils){
+      const wp = new THREE.Vector3();
+      ep.bone.getWorldPosition(wp);
+      ep.iris.position.set(wp.x, wp.y, wp.z + 0.045);
+      ep.pupil.position.set(wp.x, wp.y, wp.z + 0.046);
+    }
+  }
   controls.update();
   renderer.render(scene,camera);
 })();
@@ -222,6 +604,14 @@ loader.load(GLB_BASE,
 
     // Save T-pose quaternions
     avatar.traverse(o => { if(o.isBone) tLocalQ[o.name] = o.quaternion.clone(); });
+    // Debug: log bone names and eye meshes
+    console.log('[DEBUG] All bones:', Object.keys(tLocalQ));
+    avatar.traverse(o => {
+      if((o.isMesh||o.isSkinnedMesh) && (o.name||'').toLowerCase().includes('eye'))
+        console.log('[DEBUG] Eye mesh:', o.name, o.type);
+    });
+
+    ready = true;
 
     // Apply idle pose (arms down instead of T-pose)
     applyIdlePose();
@@ -231,8 +621,6 @@ loader.load(GLB_BASE,
 
     // Fix eyes (add pupils)
     addEyePupils();
-
-    ready = true;
     setLoad(false);
     setStatus('Avatar yuklendi, pozlar yukleniyor...', 0);
 
@@ -250,9 +638,16 @@ loader.load(GLB_BASE,
     } else {
       fetch('/api/list-poses').then(r=>r.json()).then(d=>{
         if(d.poses) loadPoses(d.poses);
+        else if(Object.keys(d).length > 0) loadPoses(d);
       }).catch(e=>{
-        console.warn('Poz yuklenemedi:', e);
-        setStatus('Pozlar yuklenemedi!', 5000);
+        console.warn('API poz yuklenemedi, saved_poses.json deneniyor:', e);
+        fetch('saved_poses.json').then(r=>r.json()).then(d=>{
+          if(d.poses) loadPoses(d.poses);
+          else if(Object.keys(d).length > 0) loadPoses(d);
+        }).catch(e2=>{
+          console.warn('Poz yuklenemedi:', e2);
+          setStatus('Pozlar yuklenemedi!', 5000);
+        });
       });
     }
   },
@@ -268,59 +663,108 @@ loader.load(GLB_BASE,
 
 // Idle pose: arms down at sides (not T-pose)
 const IDLE_POSE = {
-  'FK-UpperarmR': {x: 0.15, y: 0.2, z: 0.8},
-  'FK-UpperarmL': {x: 0.15, y: -0.2, z: -0.8},
+  'FK-UpperarmR': {x: 0.2, y: 0.15, z: 1.3},
+  'FK-UpperarmL': {x: 0.2, y: -0.15, z: -1.3},
+  'FK-ForearmR': {x: 0.15, y: 0, z: 0},
+  'FK-ForearmL': {x: 0.15, y: 0, z: 0},
 };
 let idleApplied = false;
 
 function applyIdlePose(){
-  if(!ready) return;
+  console.log('[DEBUG] applyIdlePose called, ready=', ready, 'bones:', Object.keys(bones).length);
   for(const boneId in IDLE_POSE){
     const bone = bones[boneId];
-    if(!bone || !tLocalQ[boneId]) continue;
+    if(!bone || !tLocalQ[boneId]){ console.warn('[DEBUG] Missing bone:', boneId); continue; }
     const r = IDLE_POSE[boneId];
     const euler = new THREE.Euler(r.x, r.y, r.z, 'XYZ');
     const q = new THREE.Quaternion().setFromEuler(euler);
     bone.quaternion.copy(tLocalQ[boneId].clone().multiply(q));
+    console.log('[DEBUG] Applied idle to', boneId);
   }
   idleApplied = true;
 }
 
 function fixHairGravity(){
-  if(!ready) return;
   const hairBones = ['FK-Hair_Ponytail1','FK-Hair_Ponytail2','FK-Hair_Ponytail3','FK-Hair_Ponytail4'];
+  let found = 0;
   hairBones.forEach((name, i) => {
     const b = bones[name];
-    if(!b) return;
+    if(!b){ console.warn('[DEBUG] Missing hair bone:', name); return; }
+    found++;
     const angle = (i+1) * 0.15;
     const euler = new THREE.Euler(angle, 0, 0, 'XYZ');
     const q = new THREE.Quaternion().setFromEuler(euler);
     b.quaternion.copy(tLocalQ[name].clone().multiply(q));
   });
+  console.log('[DEBUG] fixHairGravity found', found, '/', hairBones.length, 'bones');
 }
 
 function addEyePupils(){
   if(!avatar) return;
+  // Find eye bones to get positions for pupils
+  let eyeL = null, eyeR = null;
   avatar.traverse(o => {
-    if(!o.isMesh && !o.isSkinnedMesh) return;
-    const n = (o.name||'').toLowerCase();
-    if(n.includes('eye') && !n.includes('brow') && !n.includes('lash') && !n.includes('lid')){
-      if(o.material){
-        const m = o.material.clone ? o.material.clone() : o.material;
-        m.color = new THREE.Color(0x1a1a1a);
-        m.roughness = 0.3;
-        m.metalness = 0.1;
-        // Create pupil sphere
-        const pupil = new THREE.Mesh(
-          new THREE.SphereGeometry(0.004, 16, 16),
-          new THREE.MeshStandardMaterial({color: 0x111111, roughness: 0.2})
-        );
-        pupil.position.set(0, 0, 0.008);
-        o.add(pupil);
-      }
-    }
+    if(!o.isBone) return;
+    const n = o.name;
+    // CloudRig eye bones
+    if(n === 'MCH-Eye_ParentL' || n === 'DEF-EyeL' || n === 'FK-EyeL') eyeL = o;
+    if(n === 'MCH-Eye_ParentR' || n === 'DEF-EyeR' || n === 'FK-EyeR') eyeR = o;
   });
+  console.log('[DEBUG] Eye bones found: L=', eyeL?.name, 'R=', eyeR?.name);
+
+  // Find the eyes mesh and get its bounding box to determine eye size
+  let eyesMesh = null;
+  avatar.traverse(o => {
+    if((o.isMesh || o.isSkinnedMesh) && o.name === 'GEO-rain-eyes') eyesMesh = o;
+  });
+
+  if(eyesMesh){
+    // Create iris+pupil as flat circles on the eyes mesh
+    const irisMat = new THREE.MeshStandardMaterial({
+      color: 0x3d2b1f, roughness: 0.5, metalness: 0.0, side: THREE.DoubleSide
+    });
+    const pupilMat = new THREE.MeshStandardMaterial({
+      color: 0x0a0a0a, roughness: 0.3, metalness: 0.0, side: THREE.DoubleSide
+    });
+
+    // Get world positions of eye bones or estimate from mesh
+    const addPupilToEye = (eyeBone, side) => {
+      if(!eyeBone) return;
+      const wp = new THREE.Vector3();
+      eyeBone.getWorldPosition(wp);
+      console.log('[DEBUG] Eye bone', side, 'world pos:', wp.x.toFixed(4), wp.y.toFixed(4), wp.z.toFixed(4));
+
+      // Add to scene but update position every frame to follow eye bone
+      const irisM = new THREE.MeshBasicMaterial({color: 0x3d2b1f, depthTest: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1});
+      const iris = new THREE.Mesh(new THREE.CircleGeometry(0.014, 32), irisM);
+      scene.add(iris);
+
+      const pupilM = new THREE.MeshBasicMaterial({color: 0x050505, depthTest: true, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2});
+      const pupil = new THREE.Mesh(new THREE.CircleGeometry(0.007, 32), pupilM);
+      scene.add(pupil);
+
+      // Store for animation loop update
+      if(!window._eyePupils) window._eyePupils = [];
+      window._eyePupils.push({bone: eyeBone, iris, pupil});
+
+      console.log('[DEBUG] Added tracked iris+pupil for', side);
+    };
+
+    addPupilToEye(eyeL, 'L');
+    addPupilToEye(eyeR, 'R');
+
+    // If no eye bones found, try to estimate positions from mesh geometry
+    if(!eyeL && !eyeR){
+      console.warn('[DEBUG] No eye bones, listing all bones with Eye in name:');
+      avatar.traverse(o => {
+        if(o.isBone && o.name.toLowerCase().includes('eye')) console.log('  ', o.name);
+      });
+    }
+  }
 }
+
+// Smooth easing function
+function easeInOut(t){ return t*t*t*(t*(6*t-15)+10); } // smootherstep
 
 // Apply a pose with interpolation factor t (0=T-pose, 1=full pose)
 function applyPoseWithT(pose, t){
@@ -383,8 +827,9 @@ window.playWord = async function(){
   if(_playing){ _stopFlag=true; await new Promise(r=>setTimeout(r,100)); }
 
   const speed = parseFloat(speedRange.value);
-  const steps = 20;
-  const frameDelay = 20 / speed;
+  // Optimized: steps 55->35, frameDelay 12->10 (2x hizli animasyon)
+  const steps = Math.max(15, Math.round(35 / speed));
+  const frameDelay = Math.max(3, Math.round(10 / speed));
   const zeroPose = {};
 
   document.getElementById('st-anim').textContent = word;
@@ -397,40 +842,40 @@ window.playWord = async function(){
   const totalPhases = keyframes.length + 1; // transitions + hold
   let phase = 0;
 
-  // Phase 1: T-pose -> first keyframe
+  // Phase 1: idle -> first keyframe (with easing)
   for(let i=0; i<=steps && !_stopFlag; i++){
-    applyPoseWithT(keyframes[0], i/steps);
+    applyPoseWithT(keyframes[0], easeInOut(i/steps));
     document.getElementById('progress-bar').style.width = ((i/steps)/(totalPhases+1)*100)+'%';
     await new Promise(r=>setTimeout(r, frameDelay));
   }
   phase++;
 
-  // Keyframe transitions
+  // Keyframe transitions (Optimized: 200ms -> 100ms)
   for(let k=0; k<keyframes.length-1 && !_stopFlag; k++){
-    await new Promise(r=>setTimeout(r, 200/speed));
+    await new Promise(r=>setTimeout(r, 100/speed));
     for(let i=0; i<=steps && !_stopFlag; i++){
-      lerpPosePlayer(keyframes[k], keyframes[k+1], i/steps);
+      lerpPosePlayer(keyframes[k], keyframes[k+1], easeInOut(i/steps));
       document.getElementById('progress-bar').style.width = (((phase+i/steps)/(totalPhases+1))*100)+'%';
       await new Promise(r=>setTimeout(r, frameDelay));
     }
     phase++;
   }
 
-  // Hold last keyframe
+  // Hold last keyframe (Optimized: 600ms -> 300ms)
   if(!_stopFlag){
     document.getElementById('progress-bar').style.width = ((phase/(totalPhases+1))*100)+'%';
-    await new Promise(r=>setTimeout(r, 600/speed));
+    await new Promise(r=>setTimeout(r, 300/speed));
   }
 
-  // Last keyframe -> T-pose
+  // Last keyframe -> idle (with easing)
   const lastKF = keyframes[keyframes.length-1];
   for(let i=steps; i>=0 && !_stopFlag; i--){
-    applyPoseWithT(lastKF, i/steps);
+    applyPoseWithT(lastKF, easeInOut(i/steps));
     document.getElementById('progress-bar').style.width = (((phase+(1-i/steps))/(totalPhases+1))*100)+'%';
     await new Promise(r=>setTimeout(r, frameDelay));
   }
 
-  applyPoseWithT(null, 0);
+  applyIdlePose();
   document.getElementById('progress-bar').style.width = '0%';
   document.getElementById('stopBtn').style.display = 'none';
   _playing = false;
@@ -441,7 +886,7 @@ window.playWord = async function(){
 window.stopPlay = function(){
   _stopFlag = true;
   _playing = false;
-  applyPoseWithT({}, 0); // Reset to T-pose
+  applyIdlePose();
   document.getElementById('stopBtn').style.display = 'none';
   document.getElementById('progress-bar').style.width = '0%';
   hideWord();
@@ -469,9 +914,265 @@ window.playSentenceFromMobile = async function(words){
   }
 };
 
+// Mobile input handler
+// Turkish character normalization
+function normTR(s){
+  return s.toUpperCase()
+    .replace(/İ/g,'I').replace(/Ş/g,'S').replace(/Ç/g,'C')
+    .replace(/Ö/g,'O').replace(/Ü/g,'U').replace(/Ğ/g,'G')
+    .replace(/ı/gi,'I').replace(/ş/gi,'S').replace(/ç/gi,'C')
+    .replace(/ö/gi,'O').replace(/ü/gi,'U').replace(/ğ/gi,'G');
+}
+
+// Turkish NLP: strip suffixes to find known root words
+function turkishToGloss(text){
+  const knownWords = Object.keys(savedPoses);
+  // Detect question
+  const raw = text.trim();
+  const isQuestion = /\?/.test(raw) || /\b(MI|MU|MÜ|Mİ|MISIN|MUSUN|MIDIR|MUDUR)\b/i.test(normTR(raw));
+  // Remove question marks and question particles before processing
+  const cleaned = normTR(raw).replace(/\?/g,'').replace(/\b(MI|MU|MISIN|MUSUN|MIDIR|MUDUR|MIYIZ|MUYUZ)\b/g,'').trim();
+  const words = cleaned.split(/\s+/).filter(w=>w);
+  const result = [];
+  // Turkish suffixes to strip (longest first)
+  const suffixes = [
+    // Complex compound suffixes (longest first)
+    'DAYDIM','DEYDIM','TAYDIN','TEYDIN','DAYDIK','DEYDIK',
+    'DAYDIN','DEYDIN','DAYDI','DEYDI',
+    'IYORUM','IYORSUN','UYORUM','UYORSUN',
+    // Cohortative (1.cogul yapalim/gidelim/icelim)
+    'YELIM','YALIM','ELIM','ALIM','SUNUZ','SINIZ',
+    'LARINA','LERINE','LARINI','LERINI','LARIMIZ','LERIMIZ',
+    'LARDAN','LERDEN','LARIN','LERIN','LARI','LERI','LARA','LERE',
+    'IMIZI','INIZI','UMUZ','UNUZ','MIZI','NIZI',
+    'SINI','SINE','INDA','INDE','NDAN','NDEN','IYOR','UYOR',
+    'SINIZ','SUNUZ','ACAK','ECEK','ACAGIM','ECEGIM',
+    'ININ','UNUN',
+    'MISTIM','MUSTUM','MISTIN','MUSTUN',
+    'MISTI','MUSTU','MISTIK','MUSTUK',
+    'DAN','DEN','TAN','TEN',
+    'YOR','MIS','MUS','DIR','TIR','DUR','TUR',
+    'SIN','SUN','YIM','YUM','YIZ','YUZ',
+    'INA','INE','UNA','UNE',
+    'INI','UNU','NIN','NUN',
+    'DA','DE','TA','TE',
+    'DI','DU','TI','TU',
+    'IM','UM','IN','UN','IZ','UZ',
+    'YI','YU','YA','YE',
+    'MI','MU','SI','SU',
+    'LA','LE','CI','CU','LI','LU',
+    'I','U','A','E'
+  ];
+
+  // Multi-word pose keys
+  const multiWordPoses = knownWords.filter(k => k.includes(' '));
+
+  let i = 0;
+  while(i < words.length){
+    // Try multi-word match first (2-3 words)
+    let multiFound = false;
+    for(let len=3; len>=2; len--){
+      if(i+len <= words.length){
+        const combined = words.slice(i, i+len).join(' ');
+        if(savedPoses[combined]){ result.push(combined); i+=len; multiFound=true; break; }
+      }
+    }
+    if(multiFound) continue;
+
+    const word = words[i]; i++;
+    // Direct match
+    if(savedPoses[word]){ result.push(word); continue; }
+    // Try stripping suffixes
+    let found = false;
+    for(const suf of suffixes){
+      if(word.length > suf.length + 1 && word.endsWith(suf)){
+        const root = word.slice(0, -suf.length);
+        if(root.length >= 2 && savedPoses[root]){ result.push(root); found=true; break; }
+      }
+    }
+    if(!found){
+      // Try partial match (word starts with a known word)
+      let bestMatch = '';
+      for(const kw of knownWords){
+        if(word.startsWith(kw) && kw.length > bestMatch.length) bestMatch = kw;
+      }
+      if(bestMatch.length >= 2) result.push(bestMatch);
+      else console.log('[NLP] Bilinmeyen kelime:', word);
+    }
+  }
+  // Add SORU at the end if question detected
+  if(isQuestion && savedPoses['SORU']) result.push('SORU');
+  return result;
+}
+
+window.mobileSend = async function(){
+  const input = document.getElementById('mobile-gloss');
+  const text = input.value.trim();
+  if(!text) return;
+  const glosses = turkishToGloss(text);
+  console.log('[NLP] Input:', text, '-> Glosses:', glosses);
+  if(glosses.length === 0){
+    setStatus('Bilinen kelime bulunamadi', 2000);
+    return;
+  }
+  document.getElementById('mobile-send').style.display='none';
+  document.getElementById('mobile-stop').style.display='';
+  await window.playSentenceFromMobile(glosses);
+  document.getElementById('mobile-send').style.display='';
+  document.getElementById('mobile-stop').style.display='none';
+};
+// Enter key triggers send
+document.getElementById('mobile-gloss')?.addEventListener('keydown', e => {
+  if(e.key === 'Enter') window.mobileSend();
+});
+document.getElementById('mobile-send')?.addEventListener('click', () => window.mobileSend());
+document.getElementById('mobile-stop')?.addEventListener('click', () => window.stopPlay());
+
+// Mobile word drawer
+// ASCII -> Turkish display
+function toTurkishDisplay(w){
+  const map = {
+    'ABLA':'ABLA','ABI':'ABİ','AFERIN':'AFERİN','AGUSTOS':'AĞUSTOS',
+    'AKILLI':'AKILLI','AKRABA':'AKRABA','AKSAM':'AKŞAM','ALERJI':'ALERJİ',
+    'ALLAH':'ALLAH','ALTI':'ALTI','AMCA':'AMCA','AMIN':'AMİN','ANNE':'ANNE',
+    'APTAL':'APTAL','ARALIK':'ARALIK','ARAP':'ARAP','ARKADAS':'ARKADAŞ',
+    'ASK':'AŞK','ATATURK':'ATATÜRK','AYIP':'AYIP','AYRAN':'AYRAN',
+    'BABA':'BABA','BAKLAVA':'BAKLAVA','BARIS':'BARIŞ','BEN':'BEN',
+    'BES':'BEŞ','BILGISAYAR':'BİLGİSAYAR','BIR':'BİR','BOS VERMEK':'BOŞ VERMEK',
+    'BU KADAR':'BU KADAR','BUGUN':'BUGÜN','BUYUK':'BÜYÜK',
+    'CARSAMBA':'ÇARŞAMBA','CAY':'ÇAY','CD':'CD','CEP TELEFONU':'CEP TELEFONU',
+    'CEZA':'CEZA','CIKOLATA':'ÇİKOLATA','CUMA':'CUMA','CUMARTESI':'CUMARTESİ',
+    'CUNKU':'ÇÜNKÜ','DIKKAT':'DİKKAT','DOKTOR':'DOKTOR','DOKUZ':'DOKUZ',
+    'DORT':'DÖRT','DOYMAK':'DOYMAK','DUN':'DÜN','EKIM':'EKİM','EKMEK':'EKMEK',
+    'ELHAMDULILLAH':'ELHAMDÜLİLLAH','ERIK':'ERİK','EV':'EV','EVET':'EVET',
+    'EVLENMEK':'EVLENMEK','EYLUL':'EYLÜL','FINAL':'FİNAL','FUTBOL':'FUTBOL',
+    'GUN':'GÜN','HANGI':'HANGİ','HAZIRAN':'HAZİRAN','HEMSIRE':'HEMŞİRE',
+    'HENTBOL':'HENTBOL','HOSCA KAL':'HOŞÇA KAL','IKI':'İKİ','IYI':'İYİ',
+    'KAHVE':'KAHVE','KASIM':'KASIM','KIS':'KIŞ','KOTU':'KÖTÜ','KUCUK':'KÜÇÜK',
+    'MART':'MART','MAYIS':'MAYIS','MERHABA':'MERHABA','NISAN':'NİSAN',
+    'OCAK':'OCAK','OGRETMEN':'ÖĞRETMEN','OKUL':'OKUL','ORUC':'ORUÇ',
+    'PAZAR':'PAZAR','PAZARTESI':'PAZARTESİ','PERSEMBE':'PERŞEMBE',
+    'SABAH':'SABAH','SALI':'SALI','SEKIZ':'SEKİZ','SEN':'SEN','SIFIR':'SIFIR',
+    'SU':'SU','SUBAT':'ŞUBAT','TEMMUZ':'TEMMUZ','TESEKKUR':'TEŞEKKÜR',
+    'TUVALET':'TUVALET','TV':'TV','UC':'ÜÇ','VOLEYBOL':'VOLEYBOL',
+    'YARDIM':'YARDIM','YATMAK':'YATMAK','YEDI':'YEDİ','YEMEK':'YEMEK',
+    'YETER':'YETER','ZENGIN':'ZENGİN','SORU':'SORU (?)'
+  };
+  return map[w] || w;
+}
+
+function buildMobileWordList(filter=''){
+  const list = document.getElementById('mobile-words-list');
+  if(!list) return;
+  list.innerHTML = '';
+  const words = Object.keys(savedPoses).sort();
+  const f = normTR(filter);
+  for(const w of words){
+    const display = toTurkishDisplay(w);
+    if(f && !w.includes(f) && !normTR(display).includes(f)) continue;
+    const chip = document.createElement('div');
+    chip.className = 'mw-chip';
+    chip.textContent = display;
+    chip.onclick = () => {
+      document.getElementById('mobile-gloss').value = display;
+      closeMobileWords();
+      window.mobileSend();
+    };
+    list.appendChild(chip);
+  }
+  const title = document.getElementById('mobile-words-title');
+  if(title) title.textContent = 'Kelimeler (' + words.length + ')';
+}
+function openMobileWords(){
+  const panel = document.getElementById('mobile-words-panel');
+  const overlay = document.getElementById('mobile-words-overlay');
+  panel.style.display = 'flex';
+  overlay.style.display = 'block';
+  requestAnimationFrame(() => panel.classList.add('open'));
+  buildMobileWordList();
+}
+function closeMobileWords(){
+  const panel = document.getElementById('mobile-words-panel');
+  const overlay = document.getElementById('mobile-words-overlay');
+  panel.classList.remove('open');
+  setTimeout(() => { panel.style.display = 'none'; overlay.style.display = 'none'; }, 300);
+}
+document.getElementById('mobile-words-btn')?.addEventListener('click', openMobileWords);
+document.getElementById('mobile-words-close')?.addEventListener('click', closeMobileWords);
+document.getElementById('mobile-words-overlay')?.addEventListener('click', closeMobileWords);
+document.getElementById('mobile-words-search')?.addEventListener('input', e => {
+  buildMobileWordList(e.target.value);
+});
+// Word request
+document.getElementById('mobile-request-send')?.addEventListener('click', () => {
+  const input = document.getElementById('mobile-request-input');
+  const word = input.value.trim();
+  if(!word) return;
+  // Save to localStorage
+  let requests = JSON.parse(localStorage.getItem('word_requests') || '[]');
+  requests.push({word, date: new Date().toISOString()});
+  localStorage.setItem('word_requests', JSON.stringify(requests));
+  // Also try to send to server
+  fetch('/api/word-request', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({word})
+  }).catch(()=>{});
+  const msg = document.getElementById('mobile-request-msg');
+  msg.textContent = '✓ "' + word + '" isteği kaydedildi!';
+  msg.style.display = 'block';
+  input.value = '';
+  setTimeout(() => msg.style.display = 'none', 3000);
+});
+// Sync mobile speed slider with main speed slider
+const mobileSpeedEl = document.getElementById('mobile-speed');
+const mobileSpeedValEl = document.getElementById('mobile-speed-val');
+if(mobileSpeedEl){
+  mobileSpeedEl.oninput = () => {
+    const v = parseFloat(mobileSpeedEl.value);
+    mobileSpeedValEl.textContent = v.toFixed(1)+'x';
+    document.getElementById('speedRange').value = v;
+    document.getElementById('speedVal').textContent = v.toFixed(1)+'x';
+  };
+}
+
 // ═══════════════════════════════════════════════
 // WORD LIST
 // ═══════════════════════════════════════════════
+const TR_DISPLAY = {
+  'ABI':'Abi','ABLA':'Abla','AFERIN':'Aferin','AGUSTOS':'Ağustos',
+  'AKILLI':'Akıllı','AKRABA':'Akraba','AKSAM':'Akşam','ALERJI':'Alerji',
+  'ALLAH':'Allah','ALTI':'Altı','AMCA':'Amca','AMIN':'Amin','ANNE':'Anne',
+  'APTAL':'Aptal','ARALIK':'Aralık','ARAP':'Arap','ARKADAS':'Arkadaş',
+  'ASK':'Aşk','ATATURK':'Atatürk','AYIP':'Ayıp','AYRAN':'Ayran',
+  'BABA':'Baba','BAKLAVA':'Baklava','BAKMAK':'Bakmak','BARIŞ':'Barış',
+  'BARIS':'Barış','BEN':'Ben','BERABER':'Beraber','BES':'Beş',
+  'BILGISAYAR':'Bilgisayar','BIR':'Bir','BITMEK':'Bitmek',
+  'BOS':'Boş','BOS VERMEK':'Boş vermek','BU KADAR':'Bu kadar',
+  'BUGUN':'Bugün','BULUSMAK':'Buluşmak','BUYUK':'Büyük',
+  'CALISMAK':'Çalışmak','CARSAMBA':'Çarşamba','CAY':'Çay','CD':'CD',
+  'CEP TELEFONU':'Cep telefonu','CEZA':'Ceza','CIKOLATA':'Çikolata',
+  'COK':'Çok','CUMA':'Cuma','CUMARTESI':'Cumartesi','CUNKU':'Çünkü',
+  'DIKKAT':'Dikkat','DOKTOR':'Doktor','DOKUZ':'Dokuz','DORT':'Dört',
+  'DOYMAK':'Doymak','DUN':'Dün','EKIM':'Ekim','EKMEK':'Ekmek',
+  'ELHAMDULILLAH':'Elhamdülillah','ERIK':'Erik','EV':'Ev','EVET':'Evet',
+  'EVLENMEK':'Evlenmek','EYLUL':'Eylül','FINAL':'Final','FUTBOL':'Futbol',
+  'GORUSMEK':'Görüşmek','GUN':'Gün','HANGI':'Hangi','HAZIRAN':'Haziran',
+  'HEMSIRE':'Hemşire','HENTBOL':'Hentbol','HOSCA KAL':'Hoşça kal',
+  'ICMEK':'İçmek','IKI':'İki','IYI':'İyi',
+  'KAC':'Kaç','KAFE':'Kafe','KAHVE':'Kahve','KASIM':'Kasım',
+  'KENDI':'Kendi','KIS':'Kış','KOTU':'Kötü','KUCUK':'Küçük',
+  'MART':'Mart','MAYIS':'Mayıs','MERHABA':'Merhaba',
+  'NASILSIN':'Nasılsın','NE':'Ne','NEREDE':'Nerede','NISAN':'Nisan',
+  'OCAK':'Ocak','OGRETMEN':'Öğretmen','OKUL':'Okul','ORUC':'Oruç',
+  'PARK':'Park','PAZAR':'Pazar','PAZARTESI':'Pazartesi','PERSEMBE':'Perşembe',
+  'SAAT':'Saat','SABAH':'Sabah','SALI':'Salı','SEKIZ':'Sekiz',
+  'SEN':'Sen','SIFIR':'Sıfır','SONRA':'Sonra','SU':'Su',
+  'SUBAT':'Şubat','TAMAM':'Tamam','TEMMUZ':'Temmuz','TESEKKUR':'Teşekkür',
+  'TUVALET':'Tuvalet','TV':'TV','UC':'Üç','VOLEYBOL':'Voleybol',
+  'YAN':'Yan','YAPMAK':'Yapmak','YARDIM':'Yardım','YATMAK':'Yatmak',
+  'YEDI':'Yedi','YEMEK':'Yemek','YETER':'Yeter','YORULMAK':'Yorulmak',
+  'ZENGIN':'Zengin','SORU':'?',
+};
 function buildWordList(){
   const wl = document.getElementById('word-list');
   wl.innerHTML = '';
@@ -480,14 +1181,34 @@ function buildWordList(){
     const btn = document.createElement('button');
     btn.className = 'w-btn';
     btn.dataset.word = w;
-    btn.innerHTML = w + '<span class="tag tag-anim">POZ</span>';
+    const display = TR_DISPLAY[w] || w;
+    btn.innerHTML = display + '<span class="tag tag-anim">POZ</span>';
     btn.onclick = () => {
       document.getElementById('glossInput').value = w;
       window.playWord();
     };
     wl.appendChild(btn);
   }
+  const cnt = document.getElementById('sbCount');
+  if(cnt) cnt.textContent = words.length;
 }
+
+window.filterSb = function(){
+  const raw = (document.getElementById('sbSearch').value || '').trim();
+  // Hem Turkce hem ASCII'yi karsilastir
+  const qAscii = turkishToASCII(raw).toUpperCase();
+  let visible = 0;
+  document.querySelectorAll('#word-list .w-btn').forEach(b => {
+    const gloss = (b.dataset.word || '').toUpperCase();
+    const display = (TR_DISPLAY[gloss] || gloss).toUpperCase();
+    const displayAscii = turkishToASCII(display).toUpperCase();
+    const match = !qAscii || gloss.includes(qAscii) || displayAscii.includes(qAscii);
+    b.style.display = match ? '' : 'none';
+    if(match) visible++;
+  });
+  const empty = document.getElementById('sb-empty');
+  if(empty) empty.classList.toggle('show', visible === 0 && raw.length > 0);
+};
 
 // ═══════════════════════════════════════════════
 // HELPERS
@@ -503,10 +1224,30 @@ function setStatus(msg, dur=0){
   if(dur>0) _stTimer = setTimeout(()=>el.style.opacity='0', dur);
 }
 function showWord(w){
+  if(hideControls) return; // Flutter handles word display
+  const display = toTurkishDisplay(w);
+  if(isMobile){
+    // Mobile: show word at bottom above input bar, not on avatar head
+    let mw = document.getElementById('mobile-word');
+    if(!mw){
+      mw = document.createElement('div');
+      mw.id = 'mobile-word';
+      mw.style.cssText = 'position:fixed;bottom:65px;left:50%;transform:translateX(-50%);padding:6px 16px;border-radius:10px;background:rgba(91,76,219,0.9);color:#fff;font-size:14px;font-weight:700;z-index:101;pointer-events:none;transition:opacity .3s';
+      document.body.appendChild(mw);
+    }
+    mw.textContent = display;
+    mw.style.opacity = '1';
+    return;
+  }
   const el = document.getElementById('word-display');
-  el.textContent = w; el.style.opacity = '1';
+  el.textContent = display; el.style.opacity = '1';
 }
 function hideWord(){
+  if(isMobile){
+    const mw = document.getElementById('mobile-word');
+    if(mw) mw.style.opacity = '0';
+    return;
+  }
   document.getElementById('word-display').style.opacity = '0';
 }
 
@@ -532,8 +1273,10 @@ const STOP_WORDS = new Set([
   'BU','SU','O','BUNU','SUNU','ONU','BUNUN','SUNUN','ONUN',
   'BANA','SANA','ONA','BIZE','SIZE','ONLARA',
   'BENIM','SENIN','ONUN','BIZIM','SIZIN','ONLARIN',
-  'NE','NASIL','NEREDE','NEREYE','NEREDEN','NEDEN','NIYE','KIM','KIMIN',
-  'COK','AZ','BIRAZ','DAHA','EN',
+  // 'NE','NEREDE' artik isaretleri var, STOP_WORDS'tan cikarildi
+  'NASIL','NEREYE','NEREDEN','NEDEN','NIYE','KIM','KIMIN',
+  // 'COK' artik isareti var, cikarildi
+  'AZ','BIRAZ','DAHA','EN',
   'VAR','YOK','OLAN','OLMAYAN',
   'BIR','IKI','UC','DORT','BES','ALTI','YEDI','SEKIZ','DOKUZ','ON',
   'GIBI','KADAR','GORE',
@@ -548,6 +1291,15 @@ function stemTurkish(word){
     'IYORUM','UYORUM','IYORSUN','UYORSUN','IYOR','UYOR','IYOR','UYOR',
     'ACAGIM','ECEGIM','ACAKSIN','ECEKSIN','ACAK','ECEK',
     'IYORUZ','UYORUZ','IYORLAR','UYORLAR',
+    // Aorist (gorusur, gorusurum, gorusursun, gorusuruz...)
+    'IRSUNUZ','URSUNUZ','ARSUNUZ','ERSUNUZ',
+    'IRSINIZ','URSUNUZ','ARSINIZ','ERSINIZ',
+    'IRLAR','URLAR','ARLAR','ERLAR',
+    'IRSUN','URSUN','ARSIN','ERSIN',
+    'IRUM','URUM','ARIM','ERIM',
+    'IRIZ','URUZ','ARIZ','ERIZ',
+    // Cohortative (1.cogul: yapalim/gidelim/icelim/yiyelim)
+    'YELIM','YALIM','ELIM','ALIM',
     'MISTIM','MUSTUM','MISTI','MUSTU',
     'MISSIN','MUSSUN','MISSA','MUSSA',
     'MISIN','MUSUN','MIYIM','MUYUM',
@@ -574,29 +1326,101 @@ function stemTurkish(word){
     'IM','UM','A','E',
   ];
 
-  for(const s of suffixes){
-    if(w.length > s.length + 2 && w.endsWith(s)){
-      return w.slice(0, -s.length);
+  // Iteratif stem — 3 kez kadar tekrarla (compound ekleri tamamen soysun)
+  // ornek: YANINDAKI -> YANINDA -> YAN, GORUSURUZ -> GORUS, KENDINE -> KENDI -> KEND
+  let cur = w;
+  for(let iter = 0; iter < 3; iter++){
+    let stripped = false;
+    for(const s of suffixes){
+      if(cur.length >= s.length + 2 && cur.endsWith(s)){
+        cur = cur.slice(0, -s.length);
+        stripped = true;
+        break;
+      }
     }
+    if(!stripped) break;
   }
-  return w;
+  return cur;
 }
 
-// Kelime eşleştirme — önce direkt, sonra stem ile
+// Kelime eşleştirme — önce direkt, sonra stem, sonra mastar, en son fuzzy
 function findMatchingWord(word){
   const w = turkishToASCII(word).toUpperCase();
-  // Direkt eşleşme
+  // 1) Direkt eşleşme
   if(savedPoses[w]) return w;
-  // Stem ile eşleşme
+  // 2) Stem eşleşmesi
   const stemmed = stemTurkish(w);
   if(savedPoses[stemmed]) return stemmed;
-  // Poses içinde stem ile eşleşen ara
+  // 3) Mastar formu — BAK -> BAKMAK, GIT -> GITMEK, IC -> ICMEK
+  for(const inf of [stemmed+'MAK', stemmed+'MEK']){
+    if(savedPoses[inf]) return inf;
+  }
+  // 4) Poses arasinda stem'i AYNI olanlari onceleyerek ara (kesin eslesme)
   for(const poseWord of Object.keys(savedPoses)){
     if(stemTurkish(poseWord) === stemmed) return poseWord;
-    if(poseWord.startsWith(stemmed) || stemmed.startsWith(poseWord)) return poseWord;
   }
-  return null;
+  // 5) Fuzzy: en kisa baslayan adayi sec (BAKLAVA yerine BAKMAK seçilmesin diye uzunluk farki en az olan)
+  let best = null, bestDelta = Infinity;
+  for(const poseWord of Object.keys(savedPoses)){
+    if(poseWord.startsWith(stemmed) || stemmed.startsWith(poseWord)){
+      const delta = Math.abs(poseWord.length - stemmed.length);
+      if(delta < bestDelta){ bestDelta = delta; best = poseWord; }
+    }
+  }
+  return best;
 }
+
+// Demo için hızlı cümle butonları
+// ─── STT (Sesle Yazdirma) ───
+let _recog = null;
+let _recogActive = false;
+window.toggleMic = function(){
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!SR){ alert('Bu tarayıcı sesli girişi desteklemiyor (Chrome/Edge dene).'); return; }
+  const btn = document.getElementById('micBtn');
+  if(_recogActive){
+    if(_recog) _recog.stop();
+    return;
+  }
+  _recog = new SR();
+  _recog.lang = 'tr-TR';
+  _recog.interimResults = true;
+  _recog.continuous = false;
+  const inp = document.getElementById('sentenceInput');
+  _recog.onstart = ()=>{
+    _recogActive = true;
+    btn.textContent = '🔴';
+    btn.title = 'Dinleniyor… durdurmak için tıkla';
+  };
+  _recog.onresult = (ev)=>{
+    let txt = '';
+    for(let i = ev.resultIndex; i < ev.results.length; i++){
+      txt += ev.results[i][0].transcript;
+    }
+    inp.value = txt.trim();
+  };
+  _recog.onerror = (e)=>{
+    console.warn('Mic error:', e);
+    btn.textContent = '🎙️';
+    _recogActive = false;
+  };
+  _recog.onend = ()=>{
+    btn.textContent = '🎙️';
+    btn.title = 'Sesle yaz';
+    _recogActive = false;
+    if(inp.value.trim()){ window.processAndPlay(); }
+  };
+  _recog.start();
+};
+
+window.quickPhrase = function(text){
+  const inp = document.getElementById('sentenceInput');
+  if(!inp) return;
+  inp.value = text;
+  inp.focus();
+  // process & play
+  if(typeof window.processAndPlay === 'function') window.processAndPlay();
+};
 
 // Cümle işle ve oynat
 window.processAndPlay = async function(){
@@ -608,8 +1432,17 @@ window.processAndPlay = async function(){
   const glossWords = [];
   const notFound = [];
 
+  // SORU tespiti — mi/mu/mı/mü eki veya soru sözcüğü varsa sona SORU eklenecek
+  const QUESTION_TRIGGERS = new Set(['MI','MU','MİSİN','MUSUN','MIYIM','MUYUM',
+                                     'NE','KAC','NEREDE','NASILSIN','HANGI','NIYE','NEDEN','KIM']);
+  let isQuestion = input.trim().endsWith('?');
   for(const raw of rawWords){
-    const ascii = turkishToASCII(raw).toUpperCase();
+    const ascii = turkishToASCII(raw).toUpperCase().replace(/[^A-Z]/g,'');
+    if(QUESTION_TRIGGERS.has(ascii)) { isQuestion = true; break; }
+  }
+
+  for(const raw of rawWords){
+    const ascii = turkishToASCII(raw).toUpperCase().replace(/[^A-Z]/g,'');
 
     // Stop word mi?
     if(STOP_WORDS.has(ascii)) continue;
@@ -623,6 +1456,13 @@ window.processAndPlay = async function(){
       }
     } else {
       notFound.push(raw);
+    }
+  }
+
+  // Soru ise sona SORU isareti ekle (savedPoses'da varsa)
+  if(isQuestion && savedPoses['SORU']){
+    if(glossWords.length === 0 || glossWords[glossWords.length-1] !== 'SORU'){
+      glossWords.push('SORU');
     }
   }
 
