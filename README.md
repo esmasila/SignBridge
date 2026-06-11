@@ -15,6 +15,15 @@ Kameraya yapılan işareti **Türkçe metne ve sese** çevirir; yazılan/söylen
 ![Accuracy](https://img.shields.io/badge/Do%C4%9Fruluk-%2599.88-success)
 ![Vocab](https://img.shields.io/badge/Kelime-122-blueviolet)
 
+![License](https://img.shields.io/github/license/esmasila/SignBridge?color=blue)
+![Last commit](https://img.shields.io/github/last-commit/esmasila/SignBridge)
+![Repo size](https://img.shields.io/github/repo-size/esmasila/SignBridge)
+![Stars](https://img.shields.io/github/stars/esmasila/SignBridge?style=social)
+
+<br/>
+
+<img src="docs/banner.png" width="820" alt="SignBridge"/>
+
 </div>
 
 ---
@@ -28,15 +37,19 @@ Kameraya yapılan işareti **Türkçe metne ve sese** çevirir; yazılan/söylen
 
 Sistem hem **web** (Python/Flask) hem de **Android mobil uygulaması** (Flutter) olarak çalışır. Mobil uygulama, ONNX sayesinde **internet bağlantısı olmadan tamamen cihaz üzerinde** tahmin yapabilir.
 
+### 🎬 Demo
+
 <div align="center">
 
-| Web – Kamera (TİD→Türkçe) | Web – Avatar (Türkçe→TİD) |
-|:---:|:---:|
-| ![Web Kamera](docs/screenshots/web_camera.png) | ![Web Avatar](docs/screenshots/web_avatar.png) |
+<img src="docs/demo.gif" width="720" alt="SignBridge demo"/>
 
-| Mobil – Kamera | Mobil – Avatar |
+<br/><br/>
+
+**📱 Mobil Uygulama**
+
+| Kamera (TİD→Türkçe) | Avatar (Türkçe→TİD) |
 |:---:|:---:|
-| <img src="docs/screenshots/mobile_camera.png" width="280"/> | <img src="docs/screenshots/mobile_avatar.png" width="280"/> |
+| <img src="docs/screenshots/mobile_camera.png" width="260"/> | <img src="docs/screenshots/mobile_avatar.png" width="260"/> |
 
 </div>
 
