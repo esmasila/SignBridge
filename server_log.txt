@@ -1,0 +1,221 @@
+Model yuklendi | 100 kelime | cuda
+
+==================================================
+SignBridge Web Arayuzu
+==================================================
+Kelimeler (100): ABÝ, ABLA, AFERÝN, AGUSTOS, AKILLI, AKRABA, AKSAM, ALERJI, ALLAH, ALTI, AMCA, AMIN, ANNE, APTAL, ARALIK, ARAP, ARKADAS, ASK, ATATURK, AYIP, AYRAN, BABA, BAKLAVA, BARIÞ, BEN, BES, BILGISAYAR, BIR, BOS VERMEK, BU KADAR, BUGUN, BUYUK, CARSAMBA, CAY, CD, CEP TELEFONU, CEZA, CIKOLATA, CUMA, CUMARTESI, CUNKU, DIKKAT, DOKTOR, DOKUZ, DORT, DOYMAK, DUN, EKIM, EKMEK, ELHAMDULILLAH, ERIK, EV, EVET, EVLENMEK, EYLUL, FINAL, FUTBOL, GUN, HANGI, HAZIRAN, HEMSIRE, HENTBOL, HOSCA KAL, IKI, IYI, KAHVE, KASIM, KIS, KOTU, KUCUK, MART, MAYIS, MERHABA, NISAN, OCAK, OGRETMEN, OKUL, ORUC, PAZAR, PAZARTESI, PERSEMBE, SABAH, SALI, SEKIZ, SEN, SIFIR, SU, SUBAT, TEMMUZ, TESEKKUR, TUVALET, TV, UC, VOLEYBOL, YARDIM, YATMAK, YEDI, YEMEK, YETER, ZENGIN
+Adres: http://localhost:5050
+==================================================
+
+ * Serving Flask app 'web_app'
+ * Debug mode: off
+WARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5050
+ * Running on http://192.168.1.28:5050
+Press CTRL+C to quit
+INFO: Created TensorFlow Lite XNNPACK delegate for CPU.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+W0000 00:00:1774474672.444210   24076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.465201   24076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.468637    2492 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.468752   24076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.469819    7844 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.475769    7844 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.483391    4208 landmark_projection_calculator.cc:186] Using NORM_RECT without IMAGE_DIMENSIONS is only supported for the square ROI. Provide IMAGE_DIMENSIONS or use PROJECTION_MATRIX.
+W0000 00:00:1774474672.487701    2492 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+W0000 00:00:1774474672.487718   24076 inference_feedback_manager.cc:114] Feedback manager requires a model with a single signature inference. Disabling support for feedback tensors.
+192.168.1.27 - - [26/Mar/2026 00:37:52] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:53] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:53] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:54] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:55] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:56] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:57] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:57] "POST /predict_frame HTTP/1.1" 200 -
+127.0.0.1 - - [26/Mar/2026 00:37:57] "POST /reset_buffer HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:58] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:37:59] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:00] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:01] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:02] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:04] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:05] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:06] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:07] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:08] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:09] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:10] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:11] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:12] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:12] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:13] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:13] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:14] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:15] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:16] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:17] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:18] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:19] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:20] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:21] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:22] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:23] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:23] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:24] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:25] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:26] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:28] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:29] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:30] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:31] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:32] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:33] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:33] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:34] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:35] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:36] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:36] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:37] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:38] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:39] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:40] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:41] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:43] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:43] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:43] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:44] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:45] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:46] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:47] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:48] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:49] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:50] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:51] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:52] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:53] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:53] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:54] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:55] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:56] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:57] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:58] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:38:59] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:00] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:00] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:01] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:04] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:05] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:06] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:07] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:08] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:08] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:10] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:11] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:12] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:13] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:14] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:24] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:27] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:27] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:28] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:29] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:30] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:31] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:32] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:33] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:34] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:34] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:35] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:36] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:37] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:38] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:39] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:40] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:41] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:41] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:42] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:43] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:44] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:44] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:45] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:46] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:47] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:48] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:49] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:50] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:51] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:52] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:53] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:54] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:54] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:55] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:56] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:57] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:58] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:39:59] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:00] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:01] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:02] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:03] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:04] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:05] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:05] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:06] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:07] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:08] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:09] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:10] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:11] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:12] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:13] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:14] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:14] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:15] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:16] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:17] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:18] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:19] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:20] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:21] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:22] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:23] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:23] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:24] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:25] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:25] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:26] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:27] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:28] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:29] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:30] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:31] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:32] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:33] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:34] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:35] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:35] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:36] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:37] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:38] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:39] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:40] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:41] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:42] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:43] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:44] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:45] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:45] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:46] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:47] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:48] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:49] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:50] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:51] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:51] "POST /predict_frame HTTP/1.1" 200 -
+192.168.1.27 - - [26/Mar/2026 00:40:52] "POST /predict_frame HTTP/1.1" 200 -

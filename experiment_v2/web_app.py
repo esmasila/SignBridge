@@ -14,6 +14,7 @@ import torch.nn as nn
 import base64
 import time
 import json
+import threading
 from pathlib import Path
 from collections import deque
 from flask import Flask, render_template_string, Response, request, jsonify
@@ -140,7 +141,7 @@ state = {
 # 10 demo cumlesinin kelimeleri (122 sinif yerine sadece bunlar arasinda secim)
 DEMO_WORDS = {
     "MERHABA","NASILSIN","IYI","SEN","NE","YAPMAK",
-    "BEN","CALISMAK","COK","YORULMAK",
+    "BEN","CALISMAK","YORULMAK",
     "SAAT","KAC","BITMEK",
     "AKSAM","BES","SONRA","BOS",
     "BERABER","KAHVE","ICMEK",
@@ -150,23 +151,29 @@ DEMO_WORDS = {
 }
 # Demo modu icin maske (logit'lere uygulanir): allow=0, block=-inf
 import numpy as _np_dm
-_DEMO_MASK = None
-def _get_demo_mask():
-    global _DEMO_MASK
-    if _DEMO_MASK is None:
+_DEMO_MASK_NP = None
+_DEMO_MASK_TENSORS = {}  # device -> torch.Tensor cache (her cihaz icin tek tensor)
+def _get_demo_mask_tensor(device):
+    global _DEMO_MASK_NP
+    if _DEMO_MASK_NP is None:
         m = _np_dm.full(len(label_map), -1e9, dtype=_np_dm.float32)
         for w, i in label_map.items():
             if w in DEMO_WORDS:
                 m[i] = 0.0
-        _DEMO_MASK = m
-    return _DEMO_MASK
+        _DEMO_MASK_NP = m
+    key = str(device)
+    t = _DEMO_MASK_TENSORS.get(key)
+    if t is None:
+        t = torch.tensor(_DEMO_MASK_NP, device=device)
+        _DEMO_MASK_TENSORS[key] = t
+    return t
 
-CONF_THRESHOLD  = 0.90   # cok emin olmadan ekleme (gecis tahminleri filtrelensin)
+CONF_THRESHOLD  = 0.88
 CONF_FAST_TRACK = 0.95
-SMOOTH_NEEDED   = 4      # hizli karar
-SMOOTH_FAST     = 2
-MARGIN_FAST     = 0.50   # net kazanan
-COOLDOWN_SEC    = 0.4    # cumle hizli aksin
+SMOOTH_NEEDED   = 2
+SMOOTH_FAST     = 1
+MARGIN_FAST     = 0.50
+COOLDOWN_SEC    = 0.4    # daha kisa - hizli ardisik
 HAND_GONE_SEC   = 2.0    # el cekilince cumle bitis suresi
 
 # ---- Flask ----
@@ -185,7 +192,7 @@ HTML = """<!DOCTYPE html>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Inter', 'Segoe UI', sans-serif;
-    background: #08090e;
+    background: #0f172a;  /* Soft Midnight: slate-900 (mavi tonlu, pure black degil) */
     color: #e2e8f0;
     min-height: 100vh;
     -webkit-font-smoothing: antialiased;
@@ -210,7 +217,7 @@ HTML = """<!DOCTYPE html>
   header, .main { position: relative; z-index: 1; }
 
   header {
-    background: rgba(15,17,26,0.72);
+    background: rgba(30,41,59,0.6);
     backdrop-filter: blur(24px) saturate(180%);
     -webkit-backdrop-filter: blur(24px) saturate(180%);
     padding: 14px 32px;
@@ -235,15 +242,17 @@ HTML = """<!DOCTYPE html>
 
   .main {
     display: grid;
-    grid-template-columns: 1fr 380px;
+    grid-template-columns: minmax(0, 1fr) 360px;
     gap: 20px;
-    padding: 24px;
-    max-width: 1340px;
+    padding: 18px;
+    max-width: 1600px;       /* 1340 -> 1600 (camera daha buyuk) */
     margin: 0 auto;
   }
 
   /* Sol: kamera */
   .camera-section { display: flex; flex-direction: column; gap: 16px; }
+  .dual-cam { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media(max-width:980px){ .dual-cam{ grid-template-columns: 1fr; } }
   .camera-wrapper {
     position: relative;
     background: #0a0b14;
@@ -251,9 +260,18 @@ HTML = """<!DOCTYPE html>
     overflow: hidden;
     border: 1px solid rgba(255,255,255,0.07);
     aspect-ratio: 4/3;
+    min-height: 380px;       /* daha buyuk gorunum */
     box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04);
   }
-  #cameraFeed { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #cameraFeed, #cameraFeedClean { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cam-label {
+    position: absolute; bottom: 8px; left: 8px;
+    padding: 4px 10px; border-radius: 999px;
+    background: rgba(0,0,0,0.6); color: #c4b5fd;
+    font-size: 0.72rem; font-weight: 700;
+    backdrop-filter: blur(8px);
+    pointer-events: none;
+  }
   .camera-placeholder {
     position: absolute; inset: 0;
     display: flex; flex-direction: column;
@@ -325,7 +343,7 @@ HTML = """<!DOCTYPE html>
   /* Sag: panel */
   .side-panel { display: flex; flex-direction: column; gap: 16px; }
   .card {
-    background: rgba(15,17,26,0.72);
+    background: rgba(30,41,59,0.6);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.06);
@@ -521,21 +539,28 @@ HTML = """<!DOCTYPE html>
 </header>
 
 <div class="main">
-  <!-- Sol: Kamera -->
+  <!-- Sol: Iki kamera yan yana (Landmark + Raw) -->
   <div class="camera-section">
-    <div class="camera-wrapper">
-      <div class="camera-placeholder" id="placeholder">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 9.75v9A2.25 2.25 0 004.5 18.75z"/>
-        </svg>
-        <p>Kamerayı başlatmak için aşağıdaki butona bas</p>
+    <div class="dual-cam">
+      <div class="camera-wrapper">
+        <div class="camera-placeholder" id="placeholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9A2.25 2.25 0 0013.5 5.25h-9A2.25 2.25 0 002.25 9.75v9A2.25 2.25 0 004.5 18.75z"/>
+          </svg>
+          <p>Kamerayı başlatmak için aşağıdaki butona bas</p>
+        </div>
+        <img id="cameraFeed" style="display:none;" alt="Landmark">
+        <div class="pred-overlay" style="display:none;" id="predOverlay">
+          <span id="predWord">—</span>
+          <span id="predConf">%0</span>
+        </div>
+        <div class="conf-bar-wrap"><div id="confBar"></div></div>
+        <div class="cam-label">📍 Landmark</div>
       </div>
-      <img id="cameraFeed" style="display:none;" alt="Kamera">
-      <div class="pred-overlay" style="display:none;" id="predOverlay">
-        <span id="predWord">—</span>
-        <span id="predConf">%0</span>
+      <div class="camera-wrapper">
+        <img id="cameraFeedClean" style="display:none;" alt="Ham">
+        <div class="cam-label">🎥 Ham</div>
       </div>
-      <div class="conf-bar-wrap"><div id="confBar"></div></div>
     </div>
 
     <div class="controls">
@@ -819,6 +844,10 @@ function glossToSentence(glossWords) {
   // Lookahead için: subject context tüm cümleyi tarar
   const hasBen = glossWords.includes('BEN');
   const hasSen = glossWords.includes('SEN');
+  // BERABER var ise cohortative: "icelim, gidelim, bulusalim" + sona "mi?"
+  const hasBeraber = glossWords.includes('BERABER');
+  // KENDI var ise imperative: "kendine iyi bak", fiiller mastar/emir hali, IYI plain
+  const hasKendi = glossWords.includes('KENDI');
   // Tekrarlanan kelimeyi tek seferine indir (YAPMAK YAPMAK -> tek YAPMAK)
   glossWords = glossWords.filter((w, i) => i === 0 || w !== glossWords[i-1]);
   // Cumle basinda IYI ozne yokken "iyiyim" varsayalim (BEN IYI yoksa)
@@ -872,11 +901,11 @@ function glossToSentence(glossWords) {
       continue;
     }
 
-    // BOS — özneye göre çek
+    // BOS — özne yoksa 1. tekil varsay (kendinden bahis)
     if (w === 'BOS') {
-      if (lastSubject === 'ben' || (hasBen && !hasSen)) out.push('boşum');
-      else if (lastSubject === 'sen' || hasSen) out.push('boşsun');
-      else out.push('boş');
+      const s = lastSubject || (hasSen && !hasBen ? 'sen' : 'ben');
+      if (s === 'sen') out.push('boşsun');
+      else out.push('boşum');
       lastWasVerb = false;
       continue;
     }
@@ -897,9 +926,10 @@ function glossToSentence(glossWords) {
     if (w === 'BEN') { lastSubject = 'ben'; out.push('ben'); lastWasVerb = false; continue; }
     if (w === 'SEN') { lastSubject = 'sen'; out.push('sen'); lastWasVerb = false; continue; }
 
-    // IYI - cumle basinda ozne yoksa "iyiyim", BEN sonrasi "iyiyim", SEN sonrasi "iyisin"
+    // IYI - KENDI baglamda plain "iyi", yoksa ozne'ye gore
     if (w === 'IYI') {
-      if (lastSubject === 'ben' || (i === 0 && hasBen) || (i === 0 && !hasSen)) out.push('iyiyim');
+      if (hasKendi) out.push('iyi');
+      else if (lastSubject === 'ben' || (i === 0 && hasBen) || (i === 0 && !hasSen)) out.push('iyiyim');
       else if (lastSubject === 'sen' || (i === 0 && hasSen)) out.push('iyisin');
       else out.push('iyi');
       lastWasVerb = false; continue;
@@ -915,16 +945,18 @@ function glossToSentence(glossWords) {
       continue;
     }
 
-    // Fiil — özne hala aktifse 1./2. tekil çek; yoksa default 3. tekil
+    // Fiil çekimi
     if (VERB_CONJ[w]) {
-      const subj = lastSubject || '_';
-      // Önceki fiilden sonra başka bir cümlecik gelirse virgül ekle
+      let subj;
+      // KENDI varsa imperative (BAKMAK -> "bak"), BERABER varsa cohortative ("icelim")
+      if (hasKendi && !hasBen && !hasSen) subj = 'sen';   // 2. tekil emir formu (sen subj BAKMAK -> "bak")
+      else if (hasBeraber && !hasBen && !hasSen) subj = '_';
+      else subj = lastSubject || (hasSen && !hasBen ? 'sen' : 'ben');
       if (lastWasVerb && out.length > 0) {
         out[out.length - 1] += ',';
       }
       out.push(VERB_CONJ[w][subj] || VERB_CONJ[w]['_']);
       lastWasVerb = true;
-      // lastSubject KORUNDU (sonraki fiil için de geçerli)
       continue;
     }
 
@@ -943,9 +975,13 @@ function glossToSentence(glossWords) {
   // İlk harf büyük
   s = s.charAt(0).toUpperCase() + s.slice(1);
 
-  // Soru mu cümle mi?
+  // Soru mu cümle mi? (BERABER ile cohortative de soru hissi verir: "icelim mi?")
   const hasQ = glossWords.some(w => QUESTION_GLOSS.includes(w));
-  if (hasQ) {
+  if (hasQ || (hasBeraber && !hasBen && !hasSen)) {
+    // BERABER ile fiil cohortative bittiyse "mi" ekle
+    if (hasBeraber && !hasQ && !s.endsWith(' mi') && !s.endsWith(' mı') && !s.endsWith(' mu') && !s.endsWith(' mü')) {
+      s = s.replace(/[.!?]?$/, '') + ' mi';
+    }
     if (!/[?!]$/.test(s)) s += '?';
   } else {
     if (!/[.!?]$/.test(s)) s += '.';
@@ -963,7 +999,7 @@ function _scheduleAutoSpeak() {
     if (sentence && sentence.length > 0 && typeof window.speakNow === 'function') {
       window.speakNow();
     }
-  }, 1800);  // son ek-len-mesinden 1.8 sn sonra
+  }, 1500);  // son ek-len-mesinden 1.5 sn sonra
 }
 
 function updateSentenceBox() {
@@ -989,6 +1025,7 @@ function toggleCamera() {
     document.getElementById("btnStart").classList.add("active");
     document.getElementById("placeholder").style.display = "none";
     document.getElementById("cameraFeed").style.display = "block";
+    const cf2 = document.getElementById("cameraFeedClean"); if (cf2) cf2.style.display = "block";
     document.getElementById("predOverlay").style.display = "flex";
     document.getElementById("statusDot").classList.add("active");
     document.getElementById("statusText").textContent = "Canlı";
@@ -999,6 +1036,7 @@ function toggleCamera() {
     document.getElementById("btnStart").classList.remove("active");
     document.getElementById("placeholder").style.display = "flex";
     document.getElementById("cameraFeed").style.display = "none";
+    const cf2b = document.getElementById("cameraFeedClean"); if (cf2b) cf2b.style.display = "none";
     document.getElementById("predOverlay").style.display = "none";
     document.getElementById("statusDot").classList.remove("active");
     document.getElementById("statusText").textContent = "Durduruldu";
@@ -1096,6 +1134,10 @@ function saveSentence() {
 // Video frame al
 socket.on("frame", (data) => {
   document.getElementById("cameraFeed").src = "data:image/jpeg;base64," + data.img;
+  if (data.clean) {
+    const cf2 = document.getElementById("cameraFeedClean");
+    if (cf2) cf2.src = "data:image/jpeg;base64," + data.clean;
+  }
 });
 
 // Klavye kisayollari
@@ -1189,9 +1231,9 @@ def handle_start():
     state["cap"] = cap
     holistic = mp_holistic.Holistic(
         static_image_mode=False,
-        model_complexity=2,            # V2: daha guclu tespit
-        min_detection_confidence=0.3,  # V2: ortuk elleri de yakala
-        min_tracking_confidence=0.3,
+        model_complexity=1,            # collect.py ile uyumlu, 2x hizli
+        min_detection_confidence=0.3,  # ilk tespit
+        min_tracking_confidence=0.5,   # tracking guveni dustugunde yeni tespit yap (drift azalir)
         smooth_landmarks=True,
         refine_face_landmarks=False
     )
@@ -1210,7 +1252,10 @@ def handle_start():
                 rgb   = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = holistic.process(rgb)
 
-                # Landmark ciz
+                # Raw frame'in kopyasi (landmark CIZILMEDEN, yan kameraya gonderilecek)
+                frame_clean = frame.copy()
+
+                # Landmark ciz (sol gosterim)
                 mp_draw.draw_landmarks(frame, results.left_hand_landmarks,
                                         mp.solutions.hands.HAND_CONNECTIONS)
                 mp_draw.draw_landmarks(frame, results.right_hand_landmarks,
@@ -1249,15 +1294,34 @@ def handle_start():
 
                     with torch.no_grad():
                         out  = model(inp)
-                        # Demo modu: yalniz 10 cumlede gecen kelimeler arasinda sec
-                        if state.get("demo_mode"):
-                            mask = torch.tensor(_get_demo_mask(), device=out.device)
-                            out = out + mask  # disindakileri -inf yap
                         prob = torch.softmax(out, dim=1)[0]
-                        top_vals, top_idx = prob.topk(2)
+                        top_vals, top_idx = prob.topk(15)
                         pred_conf   = top_vals[0].item()
                         top2_margin = (top_vals[0] - top_vals[1]).item()
                         pred_word   = idx_to_label[top_idx[0].item()]
+
+                        # Demo modu: top-1 whitelist disinda ise, top-15 icinde whitelist ara
+                        if state.get("demo_mode") and pred_word not in DEMO_WORDS:
+                            picked = None
+                            for v, i in zip(top_vals.tolist(), top_idx.tolist()):
+                                w = idx_to_label[i]
+                                if w in DEMO_WORDS:
+                                    picked = (w, v); break
+                            if picked is not None and picked[1] >= 0.15:
+                                pred_word = picked[0]
+                                pred_conf = picked[1]
+                            else:
+                                pred_word = ""
+                                pred_conf = 0.0
+                                top2_margin = 0.0
+
+                        # TESHIS LOG (her 5 framede 1, server konsola yazar)
+                        if hand_visible and (int(time.time()*5) % 5 == 0):
+                            top5_str = " | ".join(
+                                f"{idx_to_label[int(i)]}:{float(v)*100:.0f}%"
+                                for v, i in list(zip(top_vals[:5].tolist(), top_idx[:5].tolist()))
+                            )
+                            print(f"[PRED] {top5_str}{'  [DEMO]' if state.get('demo_mode') else ''}", flush=True)
 
                     state["current_word"] = pred_word
                     state["current_conf"] = pred_conf
@@ -1269,13 +1333,24 @@ def handle_start():
                     is_fast = (pred_conf >= CONF_FAST_TRACK and top2_margin >= MARGIN_FAST)
                     needed  = SMOOTH_FAST if is_fast else SMOOTH_NEEDED
 
-                    if pred_conf >= CONF_THRESHOLD and hand_visible and not in_cooldown:
+                    # pred_word bos ise (demo modu reddetmis) smoothing'i SIFIRLAMA
+                    if pred_word and pred_conf >= CONF_THRESHOLD and hand_visible and not in_cooldown:
                         state["smooth_counts"][pred_word] += 1
                         for k in state["smooth_counts"]:
                             if k != pred_word:
                                 state["smooth_counts"][k] = max(0, state["smooth_counts"][k] - 1)
 
                         if state["smooth_counts"][pred_word] >= needed:
+                            # ── BAGLAM TEMELLI DUZELTMELER ──
+                            # KAHVE/KAFE — model bunlari karistiriyor, baglama gore duzelt
+                            if pred_word in ("KAHVE", "KAFE"):
+                                last = state["sentence"][-1] if state["sentence"] else None
+                                if last == "BERABER":
+                                    pred_word = "KAHVE"   # "Beraber kahve icelim"
+                                elif last == "YAN":
+                                    pred_word = "KAFE"    # "yanindaki kafede"
+                                elif last == "PARK":
+                                    pred_word = "KAFE"
                             # Ayni kelimeyi art arda ekleme
                             if not (state["sentence"] and state["sentence"][-1] == pred_word):
                                 if len(state["sentence"]) >= 20:
@@ -1284,15 +1359,23 @@ def handle_start():
                                 added = True
                             state["last_add_time"] = now
                             state["smooth_counts"] = {k: 0 for k in label_map}
+                            # FULL CLEAR: temiz baslangic
+                            state["buffer"].clear()
                     else:
                         if not hand_visible or in_cooldown:
                             state["smooth_counts"] = {k: 0 for k in label_map}
+                            # BUFFER'I TEMIZLEME — anlik detection kaybi (1 frame) bile
+                            # her seyi sifirliyordu. Sadece smoothing'i sifirla,
+                            # buffer kalsin ki bir sonraki frame'de devam etsin.
 
-                # Frame'i encode et
+                # Frame'i encode et (landmark'li)
                 _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
                 img_b64 = base64.b64encode(buf).decode("utf-8")
+                # Raw frame de encode et (landmark'siz, yan panel icin)
+                _, buf_clean = cv2.imencode(".jpg", frame_clean, [cv2.IMWRITE_JPEG_QUALITY, 70])
+                img_clean_b64 = base64.b64encode(buf_clean).decode("utf-8")
 
-                socketio.emit("frame", {"img": img_b64})
+                socketio.emit("frame", {"img": img_b64, "clean": img_clean_b64})
                 socketio.emit("prediction", {
                     "word":     pred_word if hand_visible else "",
                     "conf":     pred_conf if hand_visible else 0.0,
@@ -1377,13 +1460,17 @@ def predict_frame():
 
         with torch.no_grad():
             out = model(inp)
-            if state.get("demo_mode"):
-                mask = torch.tensor(_get_demo_mask(), device=out.device)
-                out = out + mask
             prob = torch.softmax(out, dim=1)[0]
-            conf, idx = prob.max(0)
-            pred_conf = conf.item()
-            pred_word = idx_to_label[idx.item()]
+            if state.get("demo_mode"):
+                # Full softmax search — whitelist icinde en yuksek
+                wl_pairs = [(prob[label_map[w]].item(), w) for w in DEMO_WORDS]
+                wl_pairs.sort(reverse=True)
+                pred_conf = wl_pairs[0][0]
+                pred_word = wl_pairs[0][1]
+            else:
+                top_vals, top_idx = prob.topk(1)
+                pred_conf = top_vals[0].item()
+                pred_word = idx_to_label[top_idx[0].item()]
 
         return jsonify({
             "success": True, "prediction_text": pred_word, "confidence": pred_conf,
@@ -1419,13 +1506,16 @@ def _get_ws_session(sid):
         sess = {
             "buffer": deque(maxlen=SEQ_LEN),
             "holistic": mp_holistic.Holistic(
-                static_image_mode=False,      # TRACKING (cok daha hizli)
-                model_complexity=1,           # streaming icin yeterli
+                static_image_mode=False,
+                model_complexity=0,           # 1 -> 0 (en hafif, en hizli MediaPipe)
                 min_detection_confidence=0.3,
                 min_tracking_confidence=0.3,
                 smooth_landmarks=True,
                 refine_face_landmarks=False,
             ),
+            # Lock: MediaPipe Holistic thread-safe degil; ayni instance'a
+            # paralel .process() cagrisi timestamp mismatch -> segfault.
+            "lock": threading.Lock(),
         }
         ws_sessions[sid] = sess
     return sess
@@ -1502,6 +1592,8 @@ def on_ws_frame(data):
         sess["buffer"].append(lm)
         buf_len = len(sess["buffer"])
 
+        # FULL BUFFER ZORUNLU — kismi tahminler noisy/yanlis cikiyordu
+        # Model 30 frame'de %95+ guvenle dogru tahmin verir
         if buf_len < SEQ_LEN:
             emit("ws_pred", {
                 "success": True, "prediction_text": "", "confidence": 0.0,
@@ -1517,11 +1609,16 @@ def on_ws_frame(data):
 
         with torch.no_grad():
             out = model(inp)
-            if state.get("demo_mode"):
-                mask = torch.tensor(_get_demo_mask(), device=out.device)
-                out = out + mask
             prob = torch.softmax(out, dim=1)[0]
-            conf, idx = prob.max(0)
+            if state.get("demo_mode"):
+                wl_pairs = [(prob[label_map[w]].item(), w, label_map[w]) for w in DEMO_WORDS]
+                wl_pairs.sort(reverse=True)
+                conf = torch.tensor(wl_pairs[0][0])
+                idx  = torch.tensor(wl_pairs[0][2])
+            else:
+                top1_vals, top1_idxs = prob.topk(1)
+                conf = top1_vals[0]
+                idx  = top1_idxs[0]
             # Top-3 teshis logu
             top3_vals, top3_idxs = prob.topk(3)
             top3_str = " | ".join(
@@ -1554,6 +1651,7 @@ def on_ws_reset():
     sid = request.sid
     sess = ws_sessions.get(sid)
     if sess is not None:
+        # FULL CLEAR: en hizli temiz baslangic
         sess["buffer"] = deque(maxlen=SEQ_LEN)
     emit("ws_pred", {"success": True, "reset": True})
 
@@ -1616,7 +1714,8 @@ def on_ws_frame_lm(data):
 
         sess = _get_ws_session(sid)
         rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = sess["holistic"].process(rgb)
+        with sess["lock"]:
+            results = sess["holistic"].process(rgb)
         lm = extract_landmarks(results).astype(np.float32)   # (1629,)
 
         hand_visible = (results.left_hand_landmarks is not None or

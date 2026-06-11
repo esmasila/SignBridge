@@ -1,0 +1,7 @@
+{
+  "num_classes": 122,
+  "checkpoint_val_acc": 99.88115611332952,
+  "eval_accuracy_percent": 99.97267759562841,
+  "eval_samples": 3660,
+  "device": "cuda"
+}
